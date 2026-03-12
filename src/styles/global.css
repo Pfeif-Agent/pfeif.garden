@@ -1,0 +1,73 @@
+/*
+ * pfeif.garden — Global Styles
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Import order matters in CUBE CSS:
+ *   1. Theme tokens  (already declared via @theme)
+ *   2. Global resets / base element styles  ← you are here
+ *   3. Composition utilities  (composition.css)
+ *   4. Component blocks      (per-component files)
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
+@import './theme.css';
+
+/* ── BASE RESETS & DEFAULTS ─────────────────────────────────────────────── */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  background-color: var(--color-base-800);
+  color: var(--color-base-50);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  line-height: var(--leading-normal);
+}
+
+/* ── PROSE DEFAULTS ─────────────────────────────────────────────────────── */
+
+p, li, blockquote {
+  font-family: var(--font-serif);
+  line-height: var(--leading-relaxed);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  font-weight: 700;
+  margin: 0;
+}
+
+code, pre, kbd {
+  font-family: var(--font-mono);
+}
+
+a {
+  color: var(--color-warm-400);
+  text-decoration-color: color-mix(in srgb, var(--color-warm-400) 40%, transparent);
+  text-underline-offset: 3px;
+  transition: color 150ms ease, text-decoration-color 150ms ease;
+}
+
+a:hover {
+  color: var(--color-warm-300);
+  text-decoration-color: var(--color-warm-300);
+}
+
+/* ── SELECTION ──────────────────────────────────────────────────────────── */
+
+::selection {
+  background-color: color-mix(in srgb, var(--color-warm-400) 25%, transparent);
+  color: var(--color-base-50);
+}
