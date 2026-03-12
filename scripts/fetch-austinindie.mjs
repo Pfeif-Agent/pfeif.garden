@@ -53,27 +53,26 @@ function mapRemixShows(data, dateStr) {
 
   for (const show of shows) {
     const venueName = show.venue?.name?.trim() || "Unknown";
-    // Carry explicit AM/PM context through a show's set list so that
-    // bare times following "8:00 am" stay in the morning, not flipped to PM.
+    const allBands    = (show.sets || []).filter(s => s.band?.name?.trim());
+    const timedSets   = allBands.filter(s => s.startTime?.trim());
+    const untimedSets = allBands.filter(s => !s.startTime?.trim());
+
+    // ── Timed sets: per-set AM/PM context logic ──────────────────────────
+    // Carry explicit AM/PM through a set list so bare times like "9:00"
+    // following "8:00 am" stay in the morning, not flipped to PM.
     let lastAmPm = null;
-
-    for (const set of (show.sets || [])) {
-      const band = set.band?.name?.trim();
-      if (!band) continue;
-
-      const raw = (set.startTime || "").trim().toLowerCase();
+    for (const set of timedSets) {
+      const band = set.band.name.trim();
+      const raw = set.startTime.trim().toLowerCase();
       const explicitAmPm = raw.match(/\b(am|pm)\b/)?.[1] ?? null;
       if (explicitAmPm) lastAmPm = explicitAmPm;
       const withContext = (!explicitAmPm && lastAmPm && raw.match(/^\d/))
         ? `${raw} ${lastAmPm}`
         : raw;
-
       const parsed = parseRemixTime(withContext);
-      if (!parsed) continue; // skip sets with no/unparseable time
-
+      if (!parsed) continue;
       const { h, m } = parsed;
       const tHour = h < 6 ? h + 24 : h;
-
       // After-midnight sets belong to the previous calendar night
       let nightDate = dateStr;
       if (h < 6) {
@@ -81,26 +80,57 @@ function mapRemixShows(data, dateStr) {
         const prev = new Date(y, mo - 1, dy - 1);
         nightDate = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}-${String(prev.getDate()).padStart(2, "0")}`;
       }
-
       result.push({
         id: `austinindie-${show.id}-${set.band.id}`,
-        artist: band,
-        venue: venueName,
-        address: "",
-        date: dateStr,
-        nightDate,
-        startHour: h,
-        startMin: m,
-        duration: 40,
+        artist: band, venue: venueName, address: "",
+        date: dateStr, nightDate,
+        startHour: h, startMin: m, duration: 40,
         startTime: `${h % 12 || 12}:${String(m).padStart(2, "0")}${h >= 12 ? "p" : "a"}`,
-        genre: "Unknown",
-        tHour,
-        source: "austinindie",
-        unofficial: true,
+        genre: "Unknown", tHour,
+        source: "austinindie", unofficial: true,
         url: set.band.listeningLink || undefined,
         eventName: show.headline || undefined,
         age: show.age || undefined,
         cover: show.cover || undefined,
+      });
+    }
+
+    // ── Untimed sets: spread evenly from doors → 2am ─────────────────────
+    // When Austin Indie lists bands with no individual set times, use the
+    // show's "doors" field as an anchor and distribute bands evenly until 2am.
+    // Times are estimates; startTime is prefixed with "~" to signal that.
+    // nightDate stays on the source date — don't roll back for estimated times
+    // since they were sourced from this date's page and belong to this night.
+    if (untimedSets.length > 0) {
+      const doorsParsed = parseRemixTime((show.doors || "").trim());
+      if (!doorsParsed) continue;
+      const { h: dh, m: dm } = doorsParsed;
+      const doorsTHour  = dh < 6 ? dh + 24 : dh;
+      const doorsAbsMin = doorsTHour * 60 + dm;
+      const END_THOUR   = 26; // 2am
+      const spanMin  = Math.max(END_THOUR * 60 - doorsAbsMin, 60);
+      const slotMin  = Math.min(Math.floor(spanMin / untimedSets.length), 90);
+
+      untimedSets.forEach((set, i) => {
+        const band      = set.band.name.trim();
+        const absMin    = doorsAbsMin + i * slotMin;
+        const bandTHour = Math.floor(absMin / 60);
+        const bandMin   = absMin % 60;
+        const h         = bandTHour >= 24 ? bandTHour - 24 : bandTHour;
+        result.push({
+          id: `austinindie-${show.id}-${set.band.id}`,
+          artist: band, venue: venueName, address: "",
+          date: dateStr, nightDate: dateStr,
+          startHour: h, startMin: bandMin, duration: slotMin,
+          startTime: `~${h % 12 || 12}:${String(bandMin).padStart(2, "0")}${h >= 12 ? "p" : "a"}`,
+          genre: "Unknown", tHour: bandTHour,
+          source: "austinindie", unofficial: true,
+          url: set.band.listeningLink || undefined,
+          eventName: show.headline || undefined,
+          age: show.age || undefined,
+          cover: show.cover || undefined,
+          estimatedTime: true,
+        });
       });
     }
   }
