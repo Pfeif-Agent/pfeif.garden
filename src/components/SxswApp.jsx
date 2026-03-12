@@ -75,61 +75,70 @@ function parseICS(text) {
 }
 function pD(s) { return { date: `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`, h: +s.slice(9,11), m: +s.slice(11,13) }; }
 
-// ── Austin Independent Music HTML parser ──────────────────
-function parseAustinIndie(html, dateStr) {
-  const events = [];
-  if (!dateStr) {
-    const titleMatch = html.match(/(\d{1,2})\/(\d{1,2})\s*-\s*Shows/);
-    if (titleMatch) dateStr = `2026-${titleMatch[1].padStart(2,"0")}-${titleMatch[2].padStart(2,"0")}`;
-    else return events;
+// ── Austin Independent Music __remixContext parser ───────
+// Parses the window.__remixContext JSON injected into austinindependentmusic.org pages.
+// Time heuristic: plain times 1–11 → PM (SXSW unofficial shows are daytime/evening);
+// times 0/< 6 after-midnight stay as-is and get tHour+24 for grid ordering.
+function parseRemixTime(t) {
+  if (!t) return null;
+  const s = t.trim().toLowerCase();
+  if (s === "noon") return { h: 12, m: 0 };
+  if (s === "midnight") return { h: 0, m: 0 };
+  const match = s.match(/^(\d{1,2})(?::(\d{2}))?(?:\s*(am|pm))?$/);
+  if (!match) return null;
+  let h = parseInt(match[1]);
+  const m = parseInt(match[2] || "0");
+  const ampm = match[3];
+  if (ampm === "am") { if (h === 12) h = 0; }
+  else if (ampm === "pm") { if (h !== 12) h += 12; }
+  else {
+    // No AM/PM: 1–11 → PM, 12 → noon, 0 → midnight
+    if (h >= 1 && h <= 11) h += 12;
   }
-  const flat = html.replace(/<[^>]+>/g, "\n").split("\n").map(l => l.trim()).filter(Boolean);
-  let currentVenue = null;
-  for (let i = 0; i < flat.length; i++) {
-    const line = flat[i];
-    const timeParts = line.match(/^(\d{1,2}):(\d{2})$/);
-    if (timeParts) {
-      let h = parseInt(timeParts[1]); const m = parseInt(timeParts[2]);
-      let artist = null;
-      for (let j = i + 1; j < Math.min(i + 4, flat.length); j++) {
-        const next = flat[j];
-        if (next && !next.match(/^\d{1,2}:\d{2}$/) && !next.match(/^(21\+|18\+|all|free|\$\d+)$/i) && next.length > 1) {
-          artist = next.replace(/\s*\(.*\)\s*$/, "").trim();
-          break;
-        }
+  return { h, m };
+}
+
+function mapRemixShows(data, dateStr) {
+  const shows = data?.state?.loaderData?.["routes/shows.day.$day"]?.shows || [];
+  const result = [];
+  for (const show of shows) {
+    const venueName = show.venue?.name || "Unknown";
+    for (const set of (show.sets || [])) {
+      const band = set.band?.name?.trim();
+      if (!band) continue;
+      const parsed = parseRemixTime(set.startTime);
+      if (!parsed) continue;
+      const { h, m } = parsed;
+      const tHour = h < 6 ? h + 24 : h;
+      let nightDate = dateStr;
+      if (h < 6) {
+        const [y, mo, dy] = dateStr.split("-").map(Number);
+        const prev = new Date(y, mo - 1, dy - 1);
+        nightDate = `${prev.getFullYear()}-${String(prev.getMonth()+1).padStart(2,"0")}-${String(prev.getDate()).padStart(2,"0")}`;
       }
-      if (artist && currentVenue) {
-        const tHour = h < 6 ? h + 24 : h;
-        let nightDate = dateStr;
-        if (h < 6) {
-          const [y, mo, dy] = dateStr.split("-").map(Number);
-          const prev = new Date(y, mo - 1, dy - 1);
-          nightDate = `${prev.getFullYear()}-${String(prev.getMonth()+1).padStart(2,"0")}-${String(prev.getDate()).padStart(2,"0")}`;
-        }
-        events.push({
-          id: `unofficial-${currentVenue}-${h}${m}-${artist}`.replace(/\s+/g, "-").slice(0, 80),
-          artist, venue: currentVenue, address: "",
-          date: dateStr, nightDate, startHour: h, startMin: m,
-          startTime: `${h % 12 || 12}:${String(m).padStart(2,"0")}${h >= 12 ? "p" : "a"}`,
-          duration: 40, genre: "Unknown", tHour,
-          source: "austinindie", unofficial: true,
-        });
-      }
-    } else if (!line.match(/^(21\+|18\+|all|free|\$\d+|doors at|where|when|who|age|cover|prev|next|sold out)/i)
-      && !line.match(/^\d{1,2}:\d{2}$/)
-      && line.length > 3 && line.length < 60
-      && !line.match(/^\d+$/)
-      && !line.includes("week")
-      && !line.includes("/shows/")) {
-      let hasTime = false;
-      for (let j = i + 1; j < Math.min(i + 8, flat.length); j++) {
-        if (flat[j]?.match(/^\d{1,2}:\d{2}$/)) { hasTime = true; break; }
-        if (flat[j]?.match(/^doors at/i)) { hasTime = true; break; }
-      }
-      if (hasTime) currentVenue = line;
+      const id = `austinindie-${show.id}-${set.band.id}`;
+      result.push({
+        id, artist: band, venue: venueName, address: "",
+        date: dateStr, nightDate,
+        startHour: h, startMin: m, duration: 40,
+        startTime: `${h % 12 || 12}:${String(m).padStart(2,"0")}${h >= 12 ? "p" : "a"}`,
+        genre: "Unknown", tHour,
+        source: "austinindie", unofficial: true,
+        url: set.band.listeningLink || undefined,
+        eventName: show.headline || undefined,
+        age: show.age || undefined,
+        cover: show.cover || undefined,
+      });
     }
   }
-  return events;
+  return result;
+}
+
+function extractRemixContext(html) {
+  // window.__remixContext = { ... };
+  const match = html.match(/window\.__remixContext\s*=\s*(\{[\s\S]*?\});\s*<\/script>/);
+  if (!match) return null;
+  try { return JSON.parse(match[1]); } catch { return null; }
 }
 
 // ── Genre map & colors ────────────────────────────────────
@@ -202,6 +211,15 @@ export default function App() {
     })();
   }, []);
 
+  // Auto-load pre-fetched Austin Indie data (written daily by scripts/fetch-austinindie.mjs)
+  useEffect(() => {
+    fetch("/data/austinindie.json")
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (Array.isArray(data) && data.length) mergeShows(data); })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const saveState = useCallback(async (s, t, ns) => {
     try { await window.storage.set("sxsw-data", JSON.stringify({ shows: s, tags: t, nightStars: ns })); } catch {}
   }, []);
@@ -242,9 +260,11 @@ export default function App() {
       let parsed;
       if (trimmed.startsWith("BEGIN:VCALENDAR") || trimmed.startsWith("BEGIN:VEVENT")) {
         parsed = parseICS(trimmed);
-      } else if (trimmed.includes("<") && trimmed.includes("Shows")) {
-        const dateMatch = trimmed.match(/(\d{4}-\d{2}-\d{2})/);
-        parsed = parseAustinIndie(trimmed, dateMatch ? dateMatch[1] : null);
+      } else if (trimmed.includes("__remixContext") || (trimmed.startsWith("<") && trimmed.includes("austinindependent"))) {
+        const ctx = extractRemixContext(trimmed);
+        if (!ctx) { alert("No __remixContext found in HTML. Make sure you pasted the full page source."); return; }
+        const dateMatch = trimmed.match(/\/shows\/day\/(\d{4}-\d{2}-\d{2})/);
+        parsed = mapRemixShows(ctx, dateMatch ? dateMatch[1] : night);
       } else { parsed = JSON.parse(trimmed); }
       if (!Array.isArray(parsed) || !parsed.length) { alert("No shows found."); return; }
       mergeShows(parsed);
