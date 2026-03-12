@@ -1,0 +1,151 @@
+/*
+ * pfeif.garden — Composition Utilities
+ * ─────────────────────────────────────────────────────────────────────────────
+ * CUBE CSS layer 3: layout primitives.
+ *
+ * These classes describe *how* elements are arranged in space.
+ * They are not decorative — no colors, no typography, no borders.
+ * They are structural — they control flow, containment, and rhythm.
+ *
+ * Usage:
+ *   .wrapper   → centered max-width container with horizontal padding
+ *   .flow      → vertical rhythm between children (via --flow-space)
+ *   .stack     → flex column with a gap (via --stack-space)
+ *   .cluster   → flex row, wrapping, for groups of inline items
+ *   .grid      → auto-responsive column grid
+ *   .cover     → vertically center a target child, fill available height
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
+
+/* ── WRAPPER ────────────────────────────────────────────────────────────── */
+/*
+ * Centers content with a max-width and consistent horizontal padding.
+ * --wrapper-max    override max-width (default: 72rem)
+ * --wrapper-pad    override horizontal padding (default: --spacing-8)
+ */
+
+.wrapper {
+  --wrapper-max: 72rem;
+  --wrapper-pad: var(--spacing-8);
+
+  width: 100%;
+  max-width: var(--wrapper-max);
+  margin-inline: auto;
+  padding-inline: var(--wrapper-pad);
+}
+
+/* Narrow variant — for prose, single-column text */
+.wrapper[data-width="narrow"] {
+  --wrapper-max: 52ch;
+}
+
+/* Wide variant — for full-bleed layouts */
+.wrapper[data-width="wide"] {
+  --wrapper-max: 90rem;
+}
+
+
+/* ── FLOW ───────────────────────────────────────────────────────────────── */
+/*
+ * Adds vertical space between children using the lobotomized owl selector.
+ * --flow-space    gap between siblings (default: --spacing-8)
+ *
+ * Usage: <div class="flow"> puts breathing room between p, h2, ul, etc.
+ * Override per-element: .flow > h2 { --flow-space: var(--spacing-12); }
+ */
+
+.flow {
+  --flow-space: var(--spacing-8);
+}
+
+.flow > * + * {
+  margin-block-start: var(--flow-space);
+}
+
+
+/* ── STACK ──────────────────────────────────────────────────────────────── */
+/*
+ * Flex column. Children stack vertically with a uniform gap.
+ * --stack-space    gap between children (default: --spacing-6)
+ */
+
+.stack {
+  --stack-space: var(--spacing-6);
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--stack-space);
+}
+
+
+/* ── CLUSTER ────────────────────────────────────────────────────────────── */
+/*
+ * Flex row, wraps. For navigation links, tag groups, button sets, etc.
+ * --cluster-space    gap between items (default: --spacing-4)
+ * --cluster-align    align-items value (default: center)
+ */
+
+.cluster {
+  --cluster-space: var(--spacing-4);
+  --cluster-align: center;
+
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cluster-space);
+  align-items: var(--cluster-align);
+}
+
+
+/* ── GRID ───────────────────────────────────────────────────────────────── */
+/*
+ * Auto-responsive column grid. No media queries needed.
+ * Columns collapse when they'd be smaller than --grid-min.
+ * --grid-min      minimum column width before collapse (default: 18rem)
+ * --grid-gap      gap between cells (default: --spacing-8)
+ */
+
+.grid {
+  --grid-min: 18rem;
+  --grid-gap: var(--spacing-8);
+
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(var(--grid-min), 100%), 1fr));
+  gap: var(--grid-gap);
+}
+
+
+/* ── COVER ──────────────────────────────────────────────────────────────── */
+/*
+ * Vertically centers a target child within a min-height container.
+ * --cover-min-height    min-height of the cover (default: 100dvh)
+ * --cover-space         padding above/below (default: --spacing-8)
+ *
+ * Mark the child to center with [data-cover-target].
+ */
+
+.cover {
+  --cover-min-height: 100dvh;
+  --cover-space: var(--spacing-8);
+
+  display: flex;
+  flex-direction: column;
+  min-height: var(--cover-min-height);
+  padding: var(--cover-space);
+}
+
+.cover > * {
+  margin-block: auto;
+}
+
+.cover > :first-child:not([data-cover-target]) {
+  margin-block-start: 0;
+}
+
+.cover > :last-child:not([data-cover-target]) {
+  margin-block-end: 0;
+}
+
+.cover > [data-cover-target] {
+  margin-block: auto;
+}

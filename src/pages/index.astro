@@ -7,9 +7,9 @@ import Slash from '../components/Slash.astro';
 
   <!-- ── NAV ─────────────────────────────────────────────────────────────── -->
   <header class="site-header">
-    <nav class="site-nav">
+    <nav class="site-nav wrapper cluster" style="--cluster-space: var(--spacing-8);">
       <a href="/" class="site-nav__logo">pfeif.garden</a>
-      <ul class="site-nav__links">
+      <ul class="cluster site-nav__links" style="--cluster-space: var(--spacing-8);">
         <li><a href="/writing">writing</a></li>
         <li><a href="/work">work</a></li>
         <li><a href="/about">about</a></li>
@@ -20,7 +20,7 @@ import Slash from '../components/Slash.astro';
   <!-- ── HERO ─────────────────────────────────────────────────────────────── -->
   <main>
     <section class="hero">
-      <div class="hero__content">
+      <div class="wrapper stack" style="--stack-space: var(--spacing-8);">
         <p class="hero__label">Jacob Pfeifer</p>
         <h1 class="hero__title">
           Software for<br />
@@ -36,7 +36,7 @@ import Slash from '../components/Slash.astro';
 
     <!-- ── INTRO ─────────────────────────────────────────────────────────── -->
     <section class="intro">
-      <div class="intro__content">
+      <div class="wrapper stack" data-width="narrow" style="--stack-space: var(--spacing-6);">
         <p class="intro__text">
           <!-- TODO: real bio copy -->
           I make software that bends toward self-expression and away from extraction.
@@ -54,16 +54,12 @@ import Slash from '../components/Slash.astro';
   /* ── HEADER / NAV ───────────────────────────────────────────────────────── */
 
   .site-header {
-    padding: var(--spacing-6) var(--spacing-8);
+    padding-block: var(--spacing-6);
     border-bottom: 1px solid var(--color-border-subtle);
   }
 
   .site-nav {
-    display: flex;
-    align-items: center;
     justify-content: space-between;
-    max-width: 72rem;
-    margin: 0 auto;
   }
 
   .site-nav__logo {
@@ -82,8 +78,6 @@ import Slash from '../components/Slash.astro';
   }
 
   .site-nav__links {
-    display: flex;
-    gap: var(--spacing-8);
     list-style: none;
     margin: 0;
     padding: 0;
@@ -102,17 +96,13 @@ import Slash from '../components/Slash.astro';
 
   .site-nav__links a:hover {
     color: var(--color-text);
+    text-decoration: none;
   }
 
   /* ── HERO ───────────────────────────────────────────────────────────────── */
 
   .hero {
-    padding: var(--spacing-24) var(--spacing-8) var(--spacing-16);
-  }
-
-  .hero__content {
-    max-width: 72rem;
-    margin: 0 auto;
+    padding-block: var(--spacing-24) var(--spacing-16);
   }
 
   .hero__label {
@@ -122,7 +112,7 @@ import Slash from '../components/Slash.astro';
     letter-spacing: var(--tracking-widest);
     text-transform: uppercase;
     color: var(--color-accent);
-    margin: 0 0 var(--spacing-4);
+    margin: 0;
   }
 
   .hero__title {
@@ -131,7 +121,7 @@ import Slash from '../components/Slash.astro';
     line-height: var(--leading-tight);
     letter-spacing: var(--tracking-tight);
     color: var(--color-text);
-    margin: 0 0 var(--spacing-8);
+    margin: 0;
     text-transform: uppercase;
   }
 
@@ -151,16 +141,7 @@ import Slash from '../components/Slash.astro';
   /* ── INTRO ──────────────────────────────────────────────────────────────── */
 
   .intro {
-    padding: var(--spacing-16) var(--spacing-8);
-  }
-
-  .intro__content {
-    max-width: 72rem;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-6);
-    max-width: 52ch;
+    padding-block: var(--spacing-16);
   }
 
   .intro__text {
@@ -179,7 +160,6 @@ import Slash from '../components/Slash.astro';
     text-transform: uppercase;
     text-decoration: none;
     color: var(--color-accent);
-    transition: color 150ms ease;
   }
 
   .intro__cta:hover {
