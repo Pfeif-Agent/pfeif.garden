@@ -178,7 +178,10 @@ const AREAS = {
   "South Congress":  ["Continental Club"],
   "Other":           ["Rivian Electric Roadhouse","Augustine","Wanderlust Wine Co."],
 };
-const areaOf = v => { for (const [a, vs] of Object.entries(AREAS)) if (vs.some(x => v.includes(x))) return a; return "Other"; };
+const areaOf = v => { const vk = v.trim().toLowerCase(); for (const [a, vs] of Object.entries(AREAS)) if (vs.some(x => vk.includes(x.toLowerCase()))) return a; return "Other"; };
+// Normalize venue name to a stable lowercase key for deduplication across sources.
+// Used to merge Austin Indie (lowercase) with SXSW ICS (title case) venues.
+const venueKey = v => v.trim().toLowerCase();
 
 // ── Grid constants ────────────────────────────────────────
 const GRID_START = 14;
@@ -317,12 +320,24 @@ export default function App() {
   const starred = useMemo(() => new Set(nightStars[night] || []), [nightStars, night]);
 
   const venues = useMemo(() => {
-    const vs = [...new Set(nightShows.map(s => s.venue))];
+    // Group shows by normalized venue key so that e.g. "valhalla" (Austin Indie)
+    // and "Valhalla" (SXSW ICS) collapse into a single column.
+    // Prefer the non-austinindie display name (usually title case from the ICS).
+    const venueMap = new Map(); // key → { displayName, shows }
+    nightShows.forEach(s => {
+      const key = venueKey(s.venue);
+      if (!venueMap.has(key)) venueMap.set(key, { displayName: s.venue, shows: [] });
+      const g = venueMap.get(key);
+      g.shows.push(s);
+      if (s.source !== "austinindie" && s.source !== "manual") g.displayName = s.venue;
+    });
+    const vs = [...venueMap.values()].map(g => g.displayName);
+
     const isUnofficial = {};
     // Prime-time score: shows with startHour 19–25 (7pm–1am next morning)
     const primeScore = {};
     vs.forEach(v => {
-      const vShows = nightShows.filter(s => s.venue === v);
+      const vShows = nightShows.filter(s => venueKey(s.venue) === venueKey(v));
       isUnofficial[v] = vShows.every(s => s.source === "austinindie" || s.source === "manual");
       primeScore[v] = vShows.filter(s => s.tHour >= 19 && s.tHour <= 25).length;
     });
@@ -514,7 +529,7 @@ export default function App() {
 
           {/* Venue columns */}
           {venues.map(venue => {
-            const vShows = nightShows.filter(s => s.venue === venue);
+            const vShows = nightShows.filter(s => venueKey(s.venue) === venueKey(venue));
             const fav = starred.has(venue);
             const area = areaOf(venue);
             return (
