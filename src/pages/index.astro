@@ -1,17 +1,189 @@
 ---
-
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Slash from '../components/Slash.astro';
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
-</html>
+<BaseLayout title="pfeif.garden" description="Jacob Pfeifer — software for human expression.">
+
+  <!-- ── NAV ─────────────────────────────────────────────────────────────── -->
+  <header class="site-header">
+    <nav class="site-nav">
+      <a href="/" class="site-nav__logo">pfeif.garden</a>
+      <ul class="site-nav__links">
+        <li><a href="/writing">writing</a></li>
+        <li><a href="/work">work</a></li>
+        <li><a href="/about">about</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <!-- ── HERO ─────────────────────────────────────────────────────────────── -->
+  <main>
+    <section class="hero">
+      <div class="hero__content">
+        <p class="hero__label">Jacob Pfeifer</p>
+        <h1 class="hero__title">
+          Software for<br />
+          <em>human expression.</em>
+        </h1>
+        <p class="hero__sub">
+          Building tools that help people say what they actually mean.
+        </p>
+      </div>
+    </section>
+
+    <Slash />
+
+    <!-- ── INTRO ─────────────────────────────────────────────────────────── -->
+    <section class="intro">
+      <div class="intro__content">
+        <p class="intro__text">
+          <!-- TODO: real bio copy -->
+          I make software that bends toward self-expression and away from extraction.
+          This is where I write about it, share work, and think out loud.
+        </p>
+        <a href="/about" class="intro__cta">More about me →</a>
+      </div>
+    </section>
+
+  </main>
+
+</BaseLayout>
+
+<style>
+  /* ── HEADER / NAV ───────────────────────────────────────────────────────── */
+
+  .site-header {
+    padding: var(--spacing-6) var(--spacing-8);
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+
+  .site-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 72rem;
+    margin: 0 auto;
+  }
+
+  .site-nav__logo {
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    font-weight: 700;
+    letter-spacing: var(--tracking-wide);
+    color: var(--color-text);
+    text-decoration: none;
+    text-transform: lowercase;
+  }
+
+  .site-nav__logo:hover {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+
+  .site-nav__links {
+    display: flex;
+    gap: var(--spacing-8);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .site-nav__links a {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    letter-spacing: var(--tracking-wide);
+    text-transform: lowercase;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    transition: color 150ms ease;
+  }
+
+  .site-nav__links a:hover {
+    color: var(--color-text);
+  }
+
+  /* ── HERO ───────────────────────────────────────────────────────────────── */
+
+  .hero {
+    padding: var(--spacing-24) var(--spacing-8) var(--spacing-16);
+  }
+
+  .hero__content {
+    max-width: 72rem;
+    margin: 0 auto;
+  }
+
+  .hero__label {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    letter-spacing: var(--tracking-widest);
+    text-transform: uppercase;
+    color: var(--color-accent);
+    margin: 0 0 var(--spacing-4);
+  }
+
+  .hero__title {
+    font-size: clamp(var(--text-5xl), 8vw, var(--text-7xl));
+    font-weight: 800;
+    line-height: var(--leading-tight);
+    letter-spacing: var(--tracking-tight);
+    color: var(--color-text);
+    margin: 0 0 var(--spacing-8);
+    text-transform: uppercase;
+  }
+
+  .hero__title em {
+    font-style: normal;
+    color: var(--color-accent);
+  }
+
+  .hero__sub {
+    font-family: var(--font-serif);
+    font-size: var(--text-lg);
+    color: var(--color-text-secondary);
+    margin: 0;
+    max-width: 40ch;
+  }
+
+  /* ── INTRO ──────────────────────────────────────────────────────────────── */
+
+  .intro {
+    padding: var(--spacing-16) var(--spacing-8);
+  }
+
+  .intro__content {
+    max-width: 72rem;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-6);
+    max-width: 52ch;
+  }
+
+  .intro__text {
+    font-family: var(--font-serif);
+    font-size: var(--text-lg);
+    line-height: var(--leading-relaxed);
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+
+  .intro__cta {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    text-decoration: none;
+    color: var(--color-accent);
+    transition: color 150ms ease;
+  }
+
+  .intro__cta:hover {
+    color: var(--color-warm-300);
+    text-decoration: none;
+  }
+</style>

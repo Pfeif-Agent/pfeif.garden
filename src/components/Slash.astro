@@ -1,0 +1,53 @@
+---
+/**
+ * Slash — the ORWO diagonal motif.
+ *
+ * Renders a full-width diagonal line (or set of lines) at --slash-angle.
+ * Use between sections to create the "before / after the slash" zone split.
+ *
+ * Props:
+ *   color   — override slash color (default: var(--slash-color))
+ *   count   — number of parallel lines (default: 1)
+ *   spacing — gap between lines when count > 1 (default: var(--slash-gap))
+ */
+interface Props {
+  color?: string;
+  count?: number;
+  spacing?: string;
+}
+
+const {
+  color = 'var(--slash-color)',
+  count = 1,
+  spacing = 'var(--slash-gap)',
+} = Astro.props;
+---
+
+<div
+  class="slash"
+  aria-hidden="true"
+  style={`--_slash-color: ${color}; --_slash-count: ${count}; --_slash-spacing: ${spacing};`}
+>
+  {Array.from({ length: count }).map((_, i) => (
+    <div class="slash__line" style={`top: calc(50% + ${i} * (var(--slash-width) + ${spacing}))`} />
+  ))}
+</div>
+
+<style>
+  .slash {
+    position: relative;
+    height: 3rem;          /* visual breathing room around the line(s)     */
+    overflow: visible;
+    pointer-events: none;
+  }
+
+  .slash__line {
+    position: absolute;
+    left: -5%;
+    right: -5%;
+    height: var(--slash-width);
+    background-color: var(--_slash-color, var(--slash-color));
+    transform: rotate(var(--slash-angle));
+    transform-origin: center;
+  }
+</style>

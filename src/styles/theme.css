@@ -142,4 +142,31 @@
   --slash-gap:      8px;      /* stripe spacing (multi-line use)   */
   --slash-color:    var(--color-warm-400);  /* yellow by default   */
 
+
+  /* ── SEMANTIC ALIASES ───────────────────────────────────────────────────── */
+  /*
+   * Named after intent, not value.
+   * Components should use these — not the raw scales.
+   * Changing the palette means changing one line here, not hunting everywhere.
+   */
+
+  /* Backgrounds */
+  --color-bg:              var(--color-base-800);   /* page background       */
+  --color-surface:         var(--color-base-700);   /* card / panel          */
+  --color-surface-raised:  var(--color-base-600);   /* elevated card         */
+
+  /* Borders & dividers */
+  --color-border:          var(--color-base-500);
+  --color-border-subtle:   var(--color-base-400);
+
+  /* Text */
+  --color-text:            var(--color-base-50);    /* primary text          */
+  --color-text-secondary:  var(--color-base-200);   /* secondary / subdued   */
+  --color-text-muted:      var(--color-base-300);   /* placeholder, disabled */
+
+  /* Accents */
+  --color-accent:          var(--color-warm-400);   /* ★ primary accent      */
+  --color-accent-secondary: var(--color-warm-500);  /* secondary accent      */
+  --color-accent-emphasis: var(--color-warm-800);   /* error / alarm         */
+
 }
