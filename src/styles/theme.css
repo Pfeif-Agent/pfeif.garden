@@ -1,0 +1,145 @@
+/*
+ * pfeif.garden — Design Tokens
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Aesthetic roots:
+ *   TR-808    → dark base, warm accent gradient, organized grid structure
+ *   ORWO      → ORWO golden yellow as primary accent, diagonal slash motif
+ *   VHS       → warm spectrum depth, analog media energy
+ *
+ * Type stack:
+ *   Barlow Condensed  → display, hero, large headings  (machine voice)
+ *   Barlow            → UI, labels, nav, subheadings   (machine voice)
+ *   Fraunces          → body prose                     (human voice)
+ *   Space Mono        → code                           (signal voice)
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
+@theme {
+
+  /* ── FONTS ──────────────────────────────────────────────────────────────── */
+
+  --font-display:  'Barlow Condensed', sans-serif;
+  --font-sans:     'Barlow', sans-serif;
+  --font-serif:    'Fraunces', serif;
+  --font-mono:     'Space Mono', monospace;
+
+
+  /* ── BASE COLOR SCALE ───────────────────────────────────────────────────── */
+  /*
+   * Dark charcoal with a slight blue-gray cast — the TR-808 chassis.
+   * Not pure black. Has depth and temperature.
+   */
+
+  --color-base-950: #0d0e12;   /* near-black                        */
+  --color-base-900: #13141a;   /* deep background                   */
+  --color-base-800: #1a1b22;   /* ★ page background                 */
+  --color-base-700: #22232d;   /* surface / card                    */
+  --color-base-600: #2c2d39;   /* elevated surface                  */
+  --color-base-500: #3e4050;   /* borders, dividers                 */
+  --color-base-400: #585a6e;   /* muted UI elements                 */
+  --color-base-300: #7e8096;   /* placeholder / disabled text       */
+  --color-base-200: #a8aabc;   /* secondary text                    */
+  --color-base-100: #d3d5e2;   /* tertiary text                     */
+  --color-base-50:  #eeeef6;   /* near-white, primary text on dark  */
+
+
+  /* ── WARM ACCENT SCALE ──────────────────────────────────────────────────── */
+  /*
+   * ORWO golden yellow → TR-808 orange → deep red.
+   * The full warm spectrum from the step-button gradient.
+   * Yellow is the hero. Red is the alarm.
+   */
+
+  --color-warm-50:  #fffce6;   /* warm white tint                   */
+  --color-warm-100: #fff3b0;   /* pale yellow                       */
+  --color-warm-200: #ffe970;   /* light yellow                      */
+  --color-warm-300: #ffda30;   /* yellow                            */
+  --color-warm-400: #f5c200;   /* ★ ORWO golden yellow — PRIMARY    */
+  --color-warm-500: #e88500;   /* orange — secondary accent         */
+  --color-warm-600: #d45500;   /* orange-red                        */
+  --color-warm-700: #b83000;   /* warm red                          */
+  --color-warm-800: #961200;   /* ★ deep red — emphasis / error     */
+  --color-warm-900: #7a0500;   /* darkest red                       */
+  --color-warm-950: #5c0200;   /* near-black red                    */
+
+
+  /* ── TYPE SCALE ─────────────────────────────────────────────────────────── */
+
+  --text-xs:   0.75rem;     /* 12px — fine print, badges        */
+  --text-sm:   0.875rem;    /* 14px — labels, captions          */
+  --text-base: 1rem;        /* 16px — body                      */
+  --text-lg:   1.125rem;    /* 18px — lead / intro text         */
+  --text-xl:   1.25rem;     /* 20px — small headings            */
+  --text-2xl:  1.5rem;      /* 24px — section headings          */
+  --text-3xl:  1.875rem;    /* 30px — article titles            */
+  --text-4xl:  2.25rem;     /* 36px — page titles               */
+  --text-5xl:  3rem;        /* 48px — display                   */
+  --text-6xl:  3.75rem;     /* 60px — hero                      */
+  --text-7xl:  5rem;        /* 80px — big display               */
+
+
+  /* ── LINE HEIGHTS ───────────────────────────────────────────────────────── */
+
+  --leading-tight:  1.2;    /* display, headings                */
+  --leading-snug:   1.35;   /* subheadings                      */
+  --leading-normal: 1.6;    /* body prose                       */
+  --leading-relaxed: 1.75;  /* long-form, comfortable reading   */
+
+
+  /* ── LETTER SPACING ─────────────────────────────────────────────────────── */
+
+  --tracking-tight:  -0.02em;  /* large display                 */
+  --tracking-normal:  0em;     /* body                          */
+  --tracking-wide:    0.05em;  /* UI labels                     */
+  --tracking-wider:   0.1em;   /* small caps, badges            */
+  --tracking-widest:  0.15em;  /* all-caps section markers      */
+
+
+  /* ── SPACING ────────────────────────────────────────────────────────────── */
+  /*
+   * 4px base unit. Consistent, rhythmic.
+   * The 808's grid is dense but organized — not airy, not cramped.
+   */
+
+  --spacing-px:  1px;
+  --spacing-0:   0;
+  --spacing-1:   0.25rem;   /* 4px    */
+  --spacing-2:   0.5rem;    /* 8px    */
+  --spacing-3:   0.75rem;   /* 12px   */
+  --spacing-4:   1rem;      /* 16px   */
+  --spacing-5:   1.25rem;   /* 20px   */
+  --spacing-6:   1.5rem;    /* 24px   */
+  --spacing-8:   2rem;      /* 32px   */
+  --spacing-10:  2.5rem;    /* 40px   */
+  --spacing-12:  3rem;      /* 48px   */
+  --spacing-16:  4rem;      /* 64px   */
+  --spacing-20:  5rem;      /* 80px   */
+  --spacing-24:  6rem;      /* 96px   */
+  --spacing-32:  8rem;      /* 128px  */
+
+
+  /* ── BORDER RADIUS ───────────────────────────────────────────────────────── */
+  /*
+   * Minimal rounding. This is a machine aesthetic — mostly sharp corners.
+   * Small radius only for interactive elements (buttons, tags).
+   */
+
+  --radius-none: 0;
+  --radius-sm:   2px;
+  --radius-md:   4px;
+  --radius-lg:   6px;
+
+
+  /* ── DIAGONAL SLASH ─────────────────────────────────────────────────────── */
+  /*
+   * The ORWO stripe — our signature layout motif.
+   * Used as a structural divider, background texture, and zoning device.
+   * Angle is fixed: the same slash everywhere, at every scale.
+   */
+
+  --slash-angle:    -14deg;   /* ORWO diagonal angle               */
+  --slash-width:    2px;      /* single rule weight                */
+  --slash-gap:      8px;      /* stripe spacing (multi-line use)   */
+  --slash-color:    var(--color-warm-400);  /* yellow by default   */
+
+}
