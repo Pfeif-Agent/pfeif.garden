@@ -103,10 +103,21 @@ function mapRemixShows(data, dateStr) {
   const result = [];
   for (const show of shows) {
     const venueName = show.venue?.name || "Unknown";
+    // Track the last explicit AM/PM seen so bare times inherit context.
+    // e.g. "8:00 am", "9:00", "10:00" → all AM (morning broadcast case).
+    let lastAmPm = null;
     for (const set of (show.sets || [])) {
       const band = set.band?.name?.trim();
       if (!band) continue;
-      const parsed = parseRemixTime(set.startTime);
+      const raw = (set.startTime || "").trim().toLowerCase();
+      // Detect explicit AM/PM in the raw string before parsing
+      const explicitAmPm = raw.match(/\b(am|pm)\b/)?.[1] ?? null;
+      if (explicitAmPm) lastAmPm = explicitAmPm;
+      // Re-parse, injecting context AM/PM if the time itself has none
+      const withContext = (!explicitAmPm && lastAmPm && raw.match(/^\d/))
+        ? `${raw} ${lastAmPm}`
+        : raw;
+      const parsed = parseRemixTime(withContext);
       if (!parsed) continue;
       const { h, m } = parsed;
       const tHour = h < 6 ? h + 24 : h;
@@ -307,24 +318,25 @@ export default function App() {
 
   const venues = useMemo(() => {
     const vs = [...new Set(nightShows.map(s => s.venue))];
-    const countMap = {};
     const isUnofficial = {};
+    // Prime-time score: shows with startHour 19–25 (7pm–1am next morning)
+    const primeScore = {};
     vs.forEach(v => {
       const vShows = nightShows.filter(s => s.venue === v);
-      countMap[v] = vShows.length;
-      // unofficial if every show at this venue is from austinindie or manual
       isUnofficial[v] = vShows.every(s => s.source === "austinindie" || s.source === "manual");
+      primeScore[v] = vShows.filter(s => s.tHour >= 19 && s.tHour <= 25).length;
     });
 
-    // Tier 0: pinned (starred) — any source
+    // Tier 0: pinned (starred) — any source, leftmost
     // Tier 1: official SXSW (unstarred)
-    // Tier 2: AIM unofficial (unstarred)
+    // Tier 2: AIM unofficial (unstarred), rightmost
     const tier = v => starred.has(v) ? 0 : isUnofficial[v] ? 2 : 1;
 
     return vs.sort((a, b) => {
       const ta = tier(a), tb = tier(b);
       if (ta !== tb) return ta - tb;
-      return countMap[b] - countMap[a];
+      // Within tier: most shows during prime time (7pm–1am) first
+      return primeScore[b] - primeScore[a];
     });
   }, [nightShows, starred]);
 

@@ -53,12 +53,22 @@ function mapRemixShows(data, dateStr) {
 
   for (const show of shows) {
     const venueName = show.venue?.name?.trim() || "Unknown";
+    // Carry explicit AM/PM context through a show's set list so that
+    // bare times following "8:00 am" stay in the morning, not flipped to PM.
+    let lastAmPm = null;
 
     for (const set of (show.sets || [])) {
       const band = set.band?.name?.trim();
       if (!band) continue;
 
-      const parsed = parseRemixTime(set.startTime);
+      const raw = (set.startTime || "").trim().toLowerCase();
+      const explicitAmPm = raw.match(/\b(am|pm)\b/)?.[1] ?? null;
+      if (explicitAmPm) lastAmPm = explicitAmPm;
+      const withContext = (!explicitAmPm && lastAmPm && raw.match(/^\d/))
+        ? `${raw} ${lastAmPm}`
+        : raw;
+
+      const parsed = parseRemixTime(withContext);
       if (!parsed) continue; // skip sets with no/unparseable time
 
       const { h, m } = parsed;
