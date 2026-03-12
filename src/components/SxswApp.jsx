@@ -308,10 +308,22 @@ export default function App() {
   const venues = useMemo(() => {
     const vs = [...new Set(nightShows.map(s => s.venue))];
     const countMap = {};
-    vs.forEach(v => { countMap[v] = nightShows.filter(s => s.venue === v).length; });
+    const isUnofficial = {};
+    vs.forEach(v => {
+      const vShows = nightShows.filter(s => s.venue === v);
+      countMap[v] = vShows.length;
+      // unofficial if every show at this venue is from austinindie or manual
+      isUnofficial[v] = vShows.every(s => s.source === "austinindie" || s.source === "manual");
+    });
+
+    // Tier 0: pinned (starred) — any source
+    // Tier 1: official SXSW (unstarred)
+    // Tier 2: AIM unofficial (unstarred)
+    const tier = v => starred.has(v) ? 0 : isUnofficial[v] ? 2 : 1;
+
     return vs.sort((a, b) => {
-      const fa = starred.has(a) ? 0 : 1, fb = starred.has(b) ? 0 : 1;
-      if (fa !== fb) return fa - fb;
+      const ta = tier(a), tb = tier(b);
+      if (ta !== tb) return ta - tb;
       return countMap[b] - countMap[a];
     });
   }, [nightShows, starred]);
