@@ -1,87 +1,120 @@
 ---
+import { getCollection } from 'astro:content';
 import PageLayout from '../layouts/PageLayout.astro';
-import Slash from '../components/Slash.astro';
+import FeaturedCard from '../components/FeaturedCard.astro';
+import SupportingCard from '../components/SupportingCard.astro';
+
+// Pull all highlighted items from both collections
+const writingItems = await getCollection('writing', ({ data }) => !data.draft && data.highlight);
+const labItems = await getCollection('lab', ({ data }) => !data.draft && data.highlight);
+
+// Merge and sort by publishDate descending
+const highlights = [...writingItems, ...labItems]
+  .sort((a, b) => b.data.publishDate.valueOf() - a.data.publishDate.valueOf())
+  .map(item => ({
+    title: item.data.title,
+    description: item.data.description,
+    publishDate: item.data.publishDate,
+    href: 'externalUrl' in item.data && item.data.externalUrl
+      ? item.data.externalUrl
+      : `/${'type' in item.data && item.collection === 'lab' ? 'lab' : 'writing'}/${item.id}`,
+    type: item.data.type,
+    coverImage: item.data.coverImage,
+    collection: item.collection,
+  }));
+
+const featured = highlights[0];
+const supporting = highlights.slice(1);
 ---
 
-<PageLayout title="pfeif.garden" description="Jacob Pfeifer — software for human expression.">
-
-  <!-- ── HERO ─────────────────────────────────────────────────────────────── -->
-  <section class="hero">
-    <div class="wrapper stack" style="--stack-space: var(--spacing-8);">
-      <p class="hero__label">Jacob Pfeifer</p>
-      <h1 class="hero__title">
-        Software for<br />
-        <em>human expression.</em>
-      </h1>
-      <p class="hero__sub">
-        Building tools that help people say what they actually mean.
-      </p>
-    </div>
-  </section>
-
-  <Slash />
+<PageLayout title="pfeif.garden" description="Jacob Pfeifer — designer working on Loam.">
 
   <!-- ── INTRO ─────────────────────────────────────────────────────────────── -->
   <section class="intro">
-    <div class="wrapper stack" data-width="narrow" style="--stack-space: var(--spacing-6);">
-      <p class="intro__text">
-        <!-- TODO: real bio copy -->
-        I make software that bends toward self-expression and away from extraction.
-        This is where I write about it, share work, and think out loud.
-      </p>
-      <a href="/about" class="intro__cta">More about me →</a>
+    <div class="wrapper intro__inner">
+      <div class="intro__text stack" style="--stack-space: var(--spacing-5);">
+        <p class="intro__body">
+          This is my home on the internet. A digital garden.
+          A sketchbook and notebook. Work in progress.
+        </p>
+        <p class="intro__body">
+          I'm <strong>Jacob Pfeifer</strong> — a designer working on Loam.
+        </p>
+      </div>
+      <div class="intro__photo">
+        <img
+          src="/jacob.jpg"
+          alt="Jacob Pfeifer"
+          class="intro__headshot"
+          width="120"
+          height="120"
+          loading="eager"
+          onerror="this.style.display='none'"
+        />
+      </div>
     </div>
   </section>
+
+  <!-- ── HIGHLIGHTS ────────────────────────────────────────────────────────── -->
+  {highlights.length > 0 && (
+    <section class="highlights">
+      <div class="wrapper">
+
+        <p class="highlights__label">Highlights</p>
+
+        {featured && (
+          <div class="highlights__featured">
+            <FeaturedCard
+              title={featured.title}
+              description={featured.description}
+              href={featured.href}
+              type={featured.type}
+              coverImage={featured.coverImage}
+            />
+          </div>
+        )}
+
+        {supporting.length > 0 && (
+          <div class="highlights__grid">
+            {supporting.map(item => (
+              <SupportingCard
+                title={item.title}
+                description={item.description}
+                href={item.href}
+                type={item.type}
+                coverImage={item.coverImage}
+              />
+            ))}
+          </div>
+        )}
+
+      </div>
+    </section>
+  )}
 
 </PageLayout>
 
 <style>
-  /* ── HERO ───────────────────────────────────────────────────────────────── */
-
-  .hero {
-    padding-block: var(--spacing-24) var(--spacing-16);
-  }
-
-  .hero__label {
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
-    font-weight: 500;
-    letter-spacing: var(--tracking-widest);
-    text-transform: uppercase;
-    color: var(--color-accent);
-    margin: 0;
-  }
-
-  .hero__title {
-    font-size: clamp(var(--text-5xl), 8vw, var(--text-7xl));
-    font-weight: 800;
-    line-height: var(--leading-tight);
-    letter-spacing: var(--tracking-tight);
-    color: var(--color-text);
-    margin: 0;
-    text-transform: uppercase;
-  }
-
-  .hero__title em {
-    font-style: normal;
-    color: var(--color-accent);
-  }
-
-  .hero__sub {
-    font-family: var(--font-serif);
-    font-size: var(--text-lg);
-    color: var(--color-text-secondary);
-    margin: 0;
-    max-width: 40ch;
-  }
-
   /* ── INTRO ──────────────────────────────────────────────────────────────── */
 
   .intro {
-    padding-block: var(--spacing-16);
+    padding-block: var(--spacing-16) var(--spacing-12);
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+
+  .intro__inner {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-8);
   }
 
   .intro__text {
+    flex: 1;
+    max-width: 55ch;
+  }
+
+  .intro__body {
     font-family: var(--font-serif);
     font-size: var(--text-lg);
     line-height: var(--leading-relaxed);
@@ -89,18 +122,47 @@ import Slash from '../components/Slash.astro';
     margin: 0;
   }
 
-  .intro__cta {
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
+  .intro__body strong {
+    color: var(--color-text);
     font-weight: 600;
-    letter-spacing: var(--tracking-wide);
-    text-transform: uppercase;
-    text-decoration: none;
-    color: var(--color-accent);
   }
 
-  .intro__cta:hover {
-    color: var(--color-warm-300);
-    text-decoration: none;
+  .intro__photo {
+    flex-shrink: 0;
+  }
+
+  .intro__headshot {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--color-border);
+    filter: grayscale(20%);
+  }
+
+  /* ── HIGHLIGHTS ─────────────────────────────────────────────────────────── */
+
+  .highlights {
+    padding-block: var(--spacing-16);
+  }
+
+  .highlights__label {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    letter-spacing: var(--tracking-widest);
+    text-transform: uppercase;
+    color: var(--color-accent);
+    margin: 0 0 var(--spacing-8);
+  }
+
+  .highlights__featured {
+    margin-block-end: var(--spacing-6);
+  }
+
+  .highlights__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--spacing-6);
   }
 </style>
