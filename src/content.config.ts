@@ -15,6 +15,7 @@ const blog = defineCollection({
     collection: z.string().optional(),   // broader grouping if needed
 
     // Display
+    growthStage: z.enum(['seedling', 'budding', 'evergreen']).default('seedling'),
     featured: z.boolean().default(false),
     draft: z.boolean().default(false),
     coverImage: z.string().optional(),   // path or URL — used for OG/social cards

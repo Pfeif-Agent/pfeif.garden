@@ -1,0 +1,265 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import GrowthBadge from '../components/GrowthBadge.astro';
+
+interface Props {
+  title: string;
+  description: string;
+  publishDate: Date;
+  updatedDate?: Date;
+  growthStage?: 'seedling' | 'budding' | 'evergreen';
+  tags?: string[];
+}
+
+const { title, description, publishDate, updatedDate, growthStage, tags = [] } = Astro.props;
+
+const formattedPublish = publishDate.toLocaleDateString('en-US', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+});
+
+const formattedUpdated = updatedDate?.toLocaleDateString('en-US', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+});
+---
+
+<BaseLayout title={`${title} — pfeif.garden`} description={description}>
+
+  <header class="site-header">
+    <nav class="site-nav wrapper cluster" style="--cluster-space: var(--spacing-8);">
+      <a href="/" class="site-nav__logo">pfeif.garden</a>
+      <ul class="cluster site-nav__links" style="--cluster-space: var(--spacing-8);">
+        <li><a href="/writing">writing</a></li>
+        <li><a href="/work">work</a></li>
+        <li><a href="/about">about</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <article class="post wrapper" data-width="narrow">
+
+      <header class="post__header stack" style="--stack-space: var(--spacing-4);">
+        <a href="/writing" class="post__back">← writing</a>
+        <div class="post__meta cluster" style="--cluster-space: var(--spacing-3);">
+          <time datetime={publishDate.toISOString()} class="post__date">{formattedPublish}</time>
+          {growthStage && <GrowthBadge stage={growthStage} />}
+        </div>
+        <h1 class="post__title">{title}</h1>
+        <p class="post__description">{description}</p>
+        {updatedDate && (
+          <p class="post__updated">Updated {formattedUpdated}</p>
+        )}
+        {tags.length > 0 && (
+          <ul class="post__tags cluster" style="--cluster-space: var(--spacing-2);">
+            {tags.map(tag => <li class="post__tag">{tag}</li>)}
+          </ul>
+        )}
+      </header>
+
+      <div class="post__body flow">
+        <slot />
+      </div>
+
+    </article>
+  </main>
+
+</BaseLayout>
+
+<style>
+  /* ── HEADER / NAV ─────────────────────────────────────────────────────── */
+
+  .site-header {
+    padding-block: var(--spacing-6);
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+
+  .site-nav {
+    justify-content: space-between;
+  }
+
+  .site-nav__logo {
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    font-weight: 700;
+    letter-spacing: var(--tracking-wide);
+    color: var(--color-text);
+    text-decoration: none;
+    text-transform: lowercase;
+  }
+
+  .site-nav__logo:hover {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+
+  .site-nav__links {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .site-nav__links a {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    letter-spacing: var(--tracking-wide);
+    text-transform: lowercase;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    transition: color 150ms ease;
+  }
+
+  .site-nav__links a:hover {
+    color: var(--color-text);
+    text-decoration: none;
+  }
+
+  /* ── POST ─────────────────────────────────────────────────────────────── */
+
+  .post {
+    padding-block: var(--spacing-16);
+  }
+
+  .post__back {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    letter-spacing: var(--tracking-wide);
+    text-transform: lowercase;
+    color: var(--color-text-muted);
+    text-decoration: none;
+    transition: color 150ms ease;
+  }
+
+  .post__back:hover {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+
+  .post__date {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  .post__title {
+    font-family: var(--font-display);
+    font-size: clamp(var(--text-3xl), 5vw, var(--text-5xl));
+    font-weight: 800;
+    letter-spacing: var(--tracking-tight);
+    line-height: var(--leading-tight);
+    color: var(--color-text);
+    text-transform: uppercase;
+    margin: 0;
+  }
+
+  .post__description {
+    font-family: var(--font-serif);
+    font-size: var(--text-lg);
+    line-height: var(--leading-relaxed);
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+
+  .post__updated {
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    margin: 0;
+  }
+
+  .post__tags {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .post__tag {
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    padding: 2px var(--spacing-2);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+  }
+
+  /* ── POST BODY ────────────────────────────────────────────────────────── */
+
+  .post__header {
+    margin-block-end: var(--spacing-12);
+    padding-block-end: var(--spacing-8);
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+
+  .post__body {
+    --flow-space: var(--spacing-6);
+  }
+
+  .post__body :global(h2) {
+    font-size: var(--text-2xl);
+    margin-block-start: var(--spacing-12);
+    --flow-space: var(--spacing-12);
+  }
+
+  .post__body :global(h3) {
+    font-size: var(--text-xl);
+    margin-block-start: var(--spacing-8);
+    --flow-space: var(--spacing-8);
+  }
+
+  .post__body :global(p) {
+    font-size: var(--text-base);
+    color: var(--color-text-secondary);
+  }
+
+  .post__body :global(blockquote) {
+    border-left: 3px solid var(--color-accent);
+    padding-left: var(--spacing-6);
+    color: var(--color-text-secondary);
+    font-style: italic;
+    margin-inline: 0;
+  }
+
+  .post__body :global(pre) {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-6);
+    overflow-x: auto;
+    font-size: var(--text-sm);
+  }
+
+  .post__body :global(code:not(pre code)) {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    padding: 2px var(--spacing-2);
+    font-size: 0.875em;
+  }
+
+  .post__body :global(ul),
+  .post__body :global(ol) {
+    padding-left: var(--spacing-6);
+    color: var(--color-text-secondary);
+  }
+
+  .post__body :global(li + li) {
+    margin-block-start: var(--spacing-2);
+  }
+
+  .post__body :global(hr) {
+    border: none;
+    border-top: 1px solid var(--color-border-subtle);
+    margin-block: var(--spacing-12);
+  }
+</style>
