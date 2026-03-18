@@ -1,12 +1,11 @@
 ---
 import { getCollection, render } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
 import PageLayout from '../../layouts/PageLayout.astro';
 import GrowthBadge from '../../components/GrowthBadge.astro';
 
 export async function getStaticPaths() {
-  // Only generate pages for items without an externalUrl
-  // Items with externalUrl redirect via middleware or meta-refresh
-  const items = await getCollection('lab', ({ data }) => !data.draft && !data.externalUrl);
+  const items = await getCollection('lab', ({ data }) => !data.draft);
   return items.map(item => ({
     params: { slug: item.id },
     props: { item },
@@ -14,7 +13,8 @@ export async function getStaticPaths() {
 }
 
 const { item } = Astro.props;
-const { Content } = await render(item);
+const isExternal = !!item.data.externalUrl;
+const { Content } = isExternal ? { Content: null } : await render(item);
 
 const formattedDate = item.data.publishDate.toLocaleDateString('en-US', {
   year: 'numeric',
@@ -23,6 +23,68 @@ const formattedDate = item.data.publishDate.toLocaleDateString('en-US', {
 });
 ---
 
+{isExternal ? (
+  <BaseLayout
+    title={`${item.data.title} — pfeif.garden`}
+    description={item.data.description}
+  >
+    <meta http-equiv="refresh" content={`0; url=${item.data.externalUrl}`} slot="head" />
+    <script define:vars={{ url: item.data.externalUrl }}>
+      window.location.replace(url);
+    </script>
+    <div class="redirect-page wrapper" data-width="narrow">
+      <p class="redirect-page__label">Redirecting…</p>
+      <h1 class="redirect-page__title">{item.data.title}</h1>
+      <p class="redirect-page__desc">{item.data.description}</p>
+      <a href={item.data.externalUrl} class="redirect-page__link">Go to {item.data.title} →</a>
+    </div>
+    <style>
+      .redirect-page {
+        padding-block: var(--spacing-16);
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-4);
+        min-height: 60dvh;
+        justify-content: center;
+      }
+      .redirect-page__label {
+        font-family: var(--font-sans);
+        font-size: var(--text-sm);
+        font-weight: 500;
+        letter-spacing: var(--tracking-widest);
+        text-transform: uppercase;
+        color: var(--color-accent);
+        margin: 0;
+      }
+      .redirect-page__title {
+        font-family: var(--font-display);
+        font-size: clamp(var(--text-3xl), 5vw, var(--text-5xl));
+        font-weight: 800;
+        letter-spacing: var(--tracking-tight);
+        text-transform: uppercase;
+        color: var(--color-text);
+        margin: 0;
+      }
+      .redirect-page__desc {
+        font-family: var(--font-serif);
+        font-size: var(--text-lg);
+        color: var(--color-text-secondary);
+        margin: 0;
+      }
+      .redirect-page__link {
+        font-family: var(--font-sans);
+        font-size: var(--text-base);
+        font-weight: 500;
+        color: var(--color-accent);
+        text-decoration: none;
+        margin-top: var(--spacing-4);
+      }
+      .redirect-page__link:hover {
+        text-decoration: underline;
+      }
+    </style>
+  </BaseLayout>
+) : (
 <PageLayout
   title={`${item.data.title} — pfeif.garden`}
   description={item.data.description}
@@ -116,3 +178,4 @@ const formattedDate = item.data.publishDate.toLocaleDateString('en-US', {
     --flow-space: var(--spacing-6);
   }
 </style>
+)}

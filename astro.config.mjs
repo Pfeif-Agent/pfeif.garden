@@ -7,6 +7,9 @@ import react from '@astrojs/react';
 export default defineConfig({
   output: 'static',
   site: 'https://pfeif.garden',
+  redirects: {
+    '/sxsw26': '/lab/sxsw26',
+  },
   integrations: [react()],
   vite: {
     plugins: [tailwindcss()],
