@@ -1,5 +1,5 @@
 ---
-import BaseLayout from './BaseLayout.astro';
+import PageLayout from './PageLayout.astro';
 import GrowthBadge from '../components/GrowthBadge.astro';
 
 interface Props {
@@ -26,100 +26,39 @@ const formattedUpdated = updatedDate?.toLocaleDateString('en-US', {
 });
 ---
 
-<BaseLayout title={`${title} — pfeif.garden`} description={description}>
+<PageLayout
+  title={`${title} — pfeif.garden`}
+  description={description}
+  currentPage="/writing"
+>
+  <article class="post wrapper" data-width="narrow">
 
-  <header class="site-header">
-    <nav class="site-nav wrapper cluster" style="--cluster-space: var(--spacing-8);">
-      <a href="/" class="site-nav__logo">pfeif.garden</a>
-      <ul class="cluster site-nav__links" style="--cluster-space: var(--spacing-8);">
-        <li><a href="/writing">writing</a></li>
-        <li><a href="/work">work</a></li>
-        <li><a href="/about">about</a></li>
-      </ul>
-    </nav>
-  </header>
-
-  <main>
-    <article class="post wrapper" data-width="narrow">
-
-      <header class="post__header stack" style="--stack-space: var(--spacing-4);">
-        <a href="/writing" class="post__back">← writing</a>
-        <div class="post__meta cluster" style="--cluster-space: var(--spacing-3);">
-          <time datetime={publishDate.toISOString()} class="post__date">{formattedPublish}</time>
-          {growthStage && <GrowthBadge stage={growthStage} />}
-        </div>
-        <h1 class="post__title">{title}</h1>
-        <p class="post__description">{description}</p>
-        {updatedDate && (
-          <p class="post__updated">Updated {formattedUpdated}</p>
-        )}
-        {tags.length > 0 && (
-          <ul class="post__tags cluster" style="--cluster-space: var(--spacing-2);">
-            {tags.map(tag => <li class="post__tag">{tag}</li>)}
-          </ul>
-        )}
-      </header>
-
-      <div class="post__body flow">
-        <slot />
+    <header class="post__header stack" style="--stack-space: var(--spacing-4);">
+      <a href="/writing" class="post__back">← writing</a>
+      <div class="post__meta cluster" style="--cluster-space: var(--spacing-3);">
+        <time datetime={publishDate.toISOString()} class="post__date">{formattedPublish}</time>
+        {growthStage && <GrowthBadge stage={growthStage} />}
       </div>
+      <h1 class="post__title">{title}</h1>
+      <p class="post__description">{description}</p>
+      {updatedDate && (
+        <p class="post__updated">Updated {formattedUpdated}</p>
+      )}
+      {tags.length > 0 && (
+        <ul class="post__tags cluster" style="--cluster-space: var(--spacing-2);">
+          {tags.map(tag => <li class="post__tag">{tag}</li>)}
+        </ul>
+      )}
+    </header>
 
-    </article>
-  </main>
+    <div class="post__body flow">
+      <slot />
+    </div>
 
-</BaseLayout>
+  </article>
+</PageLayout>
 
 <style>
-  /* ── HEADER / NAV ─────────────────────────────────────────────────────── */
-
-  .site-header {
-    padding-block: var(--spacing-6);
-    border-bottom: 1px solid var(--color-border-subtle);
-  }
-
-  .site-nav {
-    justify-content: space-between;
-  }
-
-  .site-nav__logo {
-    font-family: var(--font-display);
-    font-size: var(--text-xl);
-    font-weight: 700;
-    letter-spacing: var(--tracking-wide);
-    color: var(--color-text);
-    text-decoration: none;
-    text-transform: lowercase;
-  }
-
-  .site-nav__logo:hover {
-    color: var(--color-accent);
-    text-decoration: none;
-  }
-
-  .site-nav__links {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-
-  .site-nav__links a {
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
-    font-weight: 500;
-    letter-spacing: var(--tracking-wide);
-    text-transform: lowercase;
-    color: var(--color-text-secondary);
-    text-decoration: none;
-    transition: color 150ms ease;
-  }
-
-  .site-nav__links a:hover {
-    color: var(--color-text);
-    text-decoration: none;
-  }
-
-  /* ── POST ─────────────────────────────────────────────────────────────── */
-
   .post {
     padding-block: var(--spacing-16);
   }
@@ -192,8 +131,6 @@ const formattedUpdated = updatedDate?.toLocaleDateString('en-US', {
     border: 1px solid var(--color-border-subtle);
     border-radius: var(--radius-sm);
   }
-
-  /* ── POST BODY ────────────────────────────────────────────────────────── */
 
   .post__header {
     margin-block-end: var(--spacing-12);

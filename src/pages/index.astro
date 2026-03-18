@@ -1,104 +1,41 @@
 ---
-import BaseLayout from '../layouts/BaseLayout.astro';
+import PageLayout from '../layouts/PageLayout.astro';
 import Slash from '../components/Slash.astro';
 ---
 
-<BaseLayout title="pfeif.garden" description="Jacob Pfeifer — software for human expression.">
-
-  <!-- ── NAV ─────────────────────────────────────────────────────────────── -->
-  <header class="site-header">
-    <nav class="site-nav wrapper cluster" style="--cluster-space: var(--spacing-8);">
-      <a href="/" class="site-nav__logo">pfeif.garden</a>
-      <ul class="cluster site-nav__links" style="--cluster-space: var(--spacing-8);">
-        <li><a href="/writing">writing</a></li>
-        <li><a href="/work">work</a></li>
-        <li><a href="/about">about</a></li>
-      </ul>
-    </nav>
-  </header>
+<PageLayout title="pfeif.garden" description="Jacob Pfeifer — software for human expression.">
 
   <!-- ── HERO ─────────────────────────────────────────────────────────────── -->
-  <main>
-    <section class="hero">
-      <div class="wrapper stack" style="--stack-space: var(--spacing-8);">
-        <p class="hero__label">Jacob Pfeifer</p>
-        <h1 class="hero__title">
-          Software for<br />
-          <em>human expression.</em>
-        </h1>
-        <p class="hero__sub">
-          Building tools that help people say what they actually mean.
-        </p>
-      </div>
-    </section>
+  <section class="hero">
+    <div class="wrapper stack" style="--stack-space: var(--spacing-8);">
+      <p class="hero__label">Jacob Pfeifer</p>
+      <h1 class="hero__title">
+        Software for<br />
+        <em>human expression.</em>
+      </h1>
+      <p class="hero__sub">
+        Building tools that help people say what they actually mean.
+      </p>
+    </div>
+  </section>
 
-    <Slash />
+  <Slash />
 
-    <!-- ── INTRO ─────────────────────────────────────────────────────────── -->
-    <section class="intro">
-      <div class="wrapper stack" data-width="narrow" style="--stack-space: var(--spacing-6);">
-        <p class="intro__text">
-          <!-- TODO: real bio copy -->
-          I make software that bends toward self-expression and away from extraction.
-          This is where I write about it, share work, and think out loud.
-        </p>
-        <a href="/about" class="intro__cta">More about me →</a>
-      </div>
-    </section>
+  <!-- ── INTRO ─────────────────────────────────────────────────────────────── -->
+  <section class="intro">
+    <div class="wrapper stack" data-width="narrow" style="--stack-space: var(--spacing-6);">
+      <p class="intro__text">
+        <!-- TODO: real bio copy -->
+        I make software that bends toward self-expression and away from extraction.
+        This is where I write about it, share work, and think out loud.
+      </p>
+      <a href="/about" class="intro__cta">More about me →</a>
+    </div>
+  </section>
 
-  </main>
-
-</BaseLayout>
+</PageLayout>
 
 <style>
-  /* ── HEADER / NAV ───────────────────────────────────────────────────────── */
-
-  .site-header {
-    padding-block: var(--spacing-6);
-    border-bottom: 1px solid var(--color-border-subtle);
-  }
-
-  .site-nav {
-    justify-content: space-between;
-  }
-
-  .site-nav__logo {
-    font-family: var(--font-display);
-    font-size: var(--text-xl);
-    font-weight: 700;
-    letter-spacing: var(--tracking-wide);
-    color: var(--color-text);
-    text-decoration: none;
-    text-transform: lowercase;
-  }
-
-  .site-nav__logo:hover {
-    color: var(--color-accent);
-    text-decoration: none;
-  }
-
-  .site-nav__links {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-
-  .site-nav__links a {
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
-    font-weight: 500;
-    letter-spacing: var(--tracking-wide);
-    text-transform: lowercase;
-    color: var(--color-text-secondary);
-    text-decoration: none;
-    transition: color 150ms ease;
-  }
-
-  .site-nav__links a:hover {
-    color: var(--color-text);
-    text-decoration: none;
-  }
-
   /* ── HERO ───────────────────────────────────────────────────────────────── */
 
   .hero {

@@ -1,0 +1,89 @@
+---
+/**
+ * SiteNav — shared site navigation header.
+ *
+ * Props:
+ *   currentPage — one of the nav link hrefs (e.g. "/writing") to mark active
+ */
+interface Props {
+  currentPage?: string;
+}
+
+const { currentPage } = Astro.props;
+
+const links = [
+  { href: '/writing', label: 'writing' },
+  { href: '/work',    label: 'work'    },
+  { href: '/about',   label: 'about'   },
+];
+---
+
+<header class="site-header">
+  <nav class="site-nav wrapper cluster" style="--cluster-space: var(--spacing-8);">
+    <a href="/" class="site-nav__logo">pfeif.garden</a>
+    <ul class="cluster site-nav__links" style="--cluster-space: var(--spacing-8);">
+      {links.map(link => (
+        <li>
+          <a
+            href={link.href}
+            aria-current={currentPage === link.href ? 'page' : undefined}
+          >
+            {link.label}
+          </a>
+        </li>
+      ))}
+    </ul>
+  </nav>
+</header>
+
+<style>
+  .site-header {
+    padding-block: var(--spacing-6);
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+
+  .site-nav {
+    justify-content: space-between;
+  }
+
+  .site-nav__logo {
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    font-weight: 700;
+    letter-spacing: var(--tracking-wide);
+    color: var(--color-text);
+    text-decoration: none;
+    text-transform: lowercase;
+  }
+
+  .site-nav__logo:hover {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+
+  .site-nav__links {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .site-nav__links a {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    letter-spacing: var(--tracking-wide);
+    text-transform: lowercase;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    transition: color 150ms ease;
+  }
+
+  .site-nav__links a[aria-current="page"] {
+    color: var(--color-accent);
+  }
+
+  .site-nav__links a:hover {
+    color: var(--color-text);
+    text-decoration: none;
+  }
+</style>

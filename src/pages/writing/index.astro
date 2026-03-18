@@ -1,113 +1,48 @@
 ---
 import { getCollection } from 'astro:content';
-import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageLayout from '../../layouts/PageLayout.astro';
 import PostCard from '../../components/PostCard.astro';
 
 const posts = (await getCollection('blog', ({ data }) => !data.draft))
   .sort((a, b) => b.data.publishDate.valueOf() - a.data.publishDate.valueOf());
 ---
 
-<BaseLayout title="Writing — pfeif.garden" description="Thinking out loud about tools, expression, and the software we live inside.">
+<PageLayout
+  title="Writing — pfeif.garden"
+  description="Thinking out loud about tools, expression, and the software we live inside."
+  currentPage="/writing"
+>
+  <section class="writing-index wrapper" data-width="narrow">
 
-  <header class="site-header">
-    <nav class="site-nav wrapper cluster" style="--cluster-space: var(--spacing-8);">
-      <a href="/" class="site-nav__logo">pfeif.garden</a>
-      <ul class="cluster site-nav__links" style="--cluster-space: var(--spacing-8);">
-        <li><a href="/writing" aria-current="page">writing</a></li>
-        <li><a href="/work">work</a></li>
-        <li><a href="/about">about</a></li>
-      </ul>
-    </nav>
-  </header>
+    <header class="writing-index__header stack" style="--stack-space: var(--spacing-4);">
+      <p class="writing-index__label">Writing</p>
+      <h1 class="writing-index__title">Thinking out loud.</h1>
+      <p class="writing-index__sub">
+        Essays, notes, and half-formed thoughts about tools, expression, and the software we live inside.
+      </p>
+    </header>
 
-  <main>
-    <section class="writing-index wrapper" data-width="narrow">
+    {posts.length === 0 ? (
+      <p class="writing-index__empty">Nothing here yet. Check back soon.</p>
+    ) : (
+      <div class="writing-index__posts">
+        {posts.map(post => (
+          <PostCard
+            title={post.data.title}
+            description={post.data.description}
+            publishDate={post.data.publishDate}
+            slug={post.id}
+            growthStage={post.data.growthStage}
+            tags={post.data.tags}
+          />
+        ))}
+      </div>
+    )}
 
-      <header class="writing-index__header stack" style="--stack-space: var(--spacing-4);">
-        <p class="writing-index__label">Writing</p>
-        <h1 class="writing-index__title">Thinking out loud.</h1>
-        <p class="writing-index__sub">
-          Essays, notes, and half-formed thoughts about tools, expression, and the software we live inside.
-        </p>
-      </header>
-
-      {posts.length === 0 ? (
-        <p class="writing-index__empty">Nothing here yet. Check back soon.</p>
-      ) : (
-        <div class="writing-index__posts">
-          {posts.map(post => (
-            <PostCard
-              title={post.data.title}
-              description={post.data.description}
-              publishDate={post.data.publishDate}
-              slug={post.id}
-              growthStage={post.data.growthStage}
-              tags={post.data.tags}
-            />
-          ))}
-        </div>
-      )}
-
-    </section>
-  </main>
-
-</BaseLayout>
+  </section>
+</PageLayout>
 
 <style>
-  /* ── HEADER / NAV ─────────────────────────────────────────────────────── */
-
-  .site-header {
-    padding-block: var(--spacing-6);
-    border-bottom: 1px solid var(--color-border-subtle);
-  }
-
-  .site-nav {
-    justify-content: space-between;
-  }
-
-  .site-nav__logo {
-    font-family: var(--font-display);
-    font-size: var(--text-xl);
-    font-weight: 700;
-    letter-spacing: var(--tracking-wide);
-    color: var(--color-text);
-    text-decoration: none;
-    text-transform: lowercase;
-  }
-
-  .site-nav__logo:hover {
-    color: var(--color-accent);
-    text-decoration: none;
-  }
-
-  .site-nav__links {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-
-  .site-nav__links a {
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
-    font-weight: 500;
-    letter-spacing: var(--tracking-wide);
-    text-transform: lowercase;
-    color: var(--color-text-secondary);
-    text-decoration: none;
-    transition: color 150ms ease;
-  }
-
-  .site-nav__links a[aria-current="page"] {
-    color: var(--color-accent);
-  }
-
-  .site-nav__links a:hover {
-    color: var(--color-text);
-    text-decoration: none;
-  }
-
-  /* ── PAGE ─────────────────────────────────────────────────────────────── */
-
   .writing-index {
     padding-block: var(--spacing-16);
   }

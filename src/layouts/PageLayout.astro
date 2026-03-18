@@ -1,0 +1,46 @@
+---
+/**
+ * PageLayout — the standard full-page chrome.
+ *
+ * Wraps BaseLayout with SiteNav + SiteFooter.
+ * Most pages should use this instead of BaseLayout directly.
+ *
+ * Props:
+ *   title       — <title> tag value
+ *   description — <meta name="description"> value
+ *   currentPage — passed to SiteNav to mark the active link (e.g. "/writing")
+ */
+import BaseLayout from './BaseLayout.astro';
+import SiteNav from '../components/SiteNav.astro';
+import SiteFooter from '../components/SiteFooter.astro';
+
+interface Props {
+  title?: string;
+  description?: string;
+  currentPage?: string;
+}
+
+const { title, description, currentPage } = Astro.props;
+---
+
+<BaseLayout title={title} description={description}>
+  <div class="page-wrap">
+    <SiteNav currentPage={currentPage} />
+    <main class="page-main">
+      <slot />
+    </main>
+    <SiteFooter />
+  </div>
+</BaseLayout>
+
+<style>
+  .page-wrap {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+  }
+
+  .page-main {
+    flex: 1;
+  }
+</style>
