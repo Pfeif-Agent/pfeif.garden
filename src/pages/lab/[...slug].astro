@@ -1,0 +1,118 @@
+---
+import { getCollection, render } from 'astro:content';
+import PageLayout from '../../layouts/PageLayout.astro';
+import GrowthBadge from '../../components/GrowthBadge.astro';
+
+export async function getStaticPaths() {
+  // Only generate pages for items without an externalUrl
+  // Items with externalUrl redirect via middleware or meta-refresh
+  const items = await getCollection('lab', ({ data }) => !data.draft && !data.externalUrl);
+  return items.map(item => ({
+    params: { slug: item.id },
+    props: { item },
+  }));
+}
+
+const { item } = Astro.props;
+const { Content } = await render(item);
+
+const formattedDate = item.data.publishDate.toLocaleDateString('en-US', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+});
+---
+
+<PageLayout
+  title={`${item.data.title} — pfeif.garden`}
+  description={item.data.description}
+  currentPage="/lab"
+>
+  <article class="lab-post wrapper" data-width="narrow">
+
+    <header class="lab-post__header stack" style="--stack-space: var(--spacing-4);">
+      <a href="/lab" class="lab-post__back">← lab</a>
+      <div class="lab-post__meta cluster" style="--cluster-space: var(--spacing-3);">
+        <time datetime={item.data.publishDate.toISOString()} class="lab-post__date">{formattedDate}</time>
+        {item.data.growthStage && <GrowthBadge stage={item.data.growthStage} />}
+        {item.data.type && <span class="lab-post__type">{item.data.type}</span>}
+      </div>
+      <h1 class="lab-post__title">{item.data.title}</h1>
+      <p class="lab-post__description">{item.data.description}</p>
+    </header>
+
+    <div class="lab-post__body flow">
+      <Content />
+    </div>
+
+  </article>
+</PageLayout>
+
+<style>
+  .lab-post {
+    padding-block: var(--spacing-16);
+  }
+
+  .lab-post__back {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    letter-spacing: var(--tracking-wide);
+    text-transform: lowercase;
+    color: var(--color-text-muted);
+    text-decoration: none;
+    transition: color 150ms ease;
+  }
+
+  .lab-post__back:hover {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+
+  .lab-post__date {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  .lab-post__type {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    color: var(--color-accent);
+    opacity: 0.8;
+  }
+
+  .lab-post__title {
+    font-family: var(--font-display);
+    font-size: clamp(var(--text-3xl), 5vw, var(--text-5xl));
+    font-weight: 800;
+    letter-spacing: var(--tracking-tight);
+    line-height: var(--leading-tight);
+    color: var(--color-text);
+    text-transform: uppercase;
+    margin: 0;
+  }
+
+  .lab-post__description {
+    font-family: var(--font-serif);
+    font-size: var(--text-lg);
+    line-height: var(--leading-relaxed);
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+
+  .lab-post__header {
+    margin-block-end: var(--spacing-12);
+    padding-block-end: var(--spacing-8);
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+
+  .lab-post__body {
+    --flow-space: var(--spacing-6);
+  }
+</style>

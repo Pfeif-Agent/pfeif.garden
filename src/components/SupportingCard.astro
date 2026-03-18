@@ -1,0 +1,157 @@
+---
+/**
+ * SupportingCard — smaller highlight card for the homepage grid.
+ *
+ * Slash accent (not full treatment). Same fields as FeaturedCard but smaller scale.
+ * Sits in a grid alongside the FeaturedCard.
+ * No growth stage badge (curation implies quality).
+ */
+
+interface Props {
+  title: string;
+  description: string;
+  href: string;
+  type?: string;
+  coverImage?: string;
+}
+
+const { title, description, href, type, coverImage } = Astro.props;
+---
+
+<article class="supporting-card">
+  <a href={href} class="supporting-card__link">
+
+    {coverImage && (
+      <div class="supporting-card__image-wrap">
+        <img src={coverImage} alt="" class="supporting-card__image" loading="lazy" />
+      </div>
+    )}
+
+    <div class="supporting-card__content">
+      {/* Slash accent */}
+      <div class="supporting-card__slash" aria-hidden="true">
+        <div class="supporting-card__slash-line"></div>
+      </div>
+
+      <div class="supporting-card__body">
+        {type && <span class="supporting-card__type">{type}</span>}
+        <h2 class="supporting-card__title">{title}</h2>
+        <p class="supporting-card__description">{description}</p>
+      </div>
+    </div>
+
+  </a>
+</article>
+
+<style>
+  .supporting-card {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .supporting-card__link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    min-height: 200px;
+  }
+
+  /* Cover image */
+  .supporting-card__image-wrap {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+  }
+
+  .supporting-card__image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.2;
+    transition: opacity 300ms ease;
+  }
+
+  .supporting-card__link:hover .supporting-card__image {
+    opacity: 0.3;
+  }
+
+  /* Content layer */
+  .supporting-card__content {
+    position: relative;
+    z-index: 1;
+    height: 100%;
+    min-height: inherit;
+  }
+
+  /* Slash accent */
+  .supporting-card__slash {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .supporting-card__slash-line {
+    position: absolute;
+    left: -20%;
+    right: -20%;
+    top: 40%;
+    height: var(--slash-width);
+    background-color: var(--color-warm-400);
+    transform: rotate(var(--slash-angle));
+    transform-origin: center;
+    opacity: 0.2;
+    transition: opacity 200ms ease;
+  }
+
+  .supporting-card__link:hover .supporting-card__slash-line {
+    opacity: 0.45;
+  }
+
+  /* Body */
+  .supporting-card__body {
+    padding: var(--spacing-8);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+    height: 100%;
+    min-height: inherit;
+    justify-content: flex-end;
+  }
+
+  .supporting-card__type {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-widest);
+    text-transform: uppercase;
+    color: var(--color-warm-400);
+    opacity: 0.8;
+    align-self: flex-start;
+  }
+
+  .supporting-card__title {
+    font-family: var(--font-display);
+    font-size: clamp(var(--text-xl), 2.5vw, var(--text-3xl));
+    font-weight: 700;
+    letter-spacing: var(--tracking-tight);
+    line-height: var(--leading-tight);
+    text-transform: uppercase;
+    color: var(--color-text);
+    margin: 0;
+    transition: color 150ms ease;
+  }
+
+  .supporting-card__link:hover .supporting-card__title {
+    color: var(--color-warm-400);
+  }
+
+  .supporting-card__description {
+    font-family: var(--font-serif);
+    font-size: var(--text-sm);
+    line-height: var(--leading-snug);
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+</style>

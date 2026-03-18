@@ -3,37 +3,38 @@ import { getCollection } from 'astro:content';
 import PageLayout from '../../layouts/PageLayout.astro';
 import IndexCard from '../../components/IndexCard.astro';
 
-const posts = (await getCollection('writing', ({ data }) => !data.draft))
+const items = (await getCollection('lab', ({ data }) => !data.draft))
   .sort((a, b) => b.data.publishDate.valueOf() - a.data.publishDate.valueOf());
 ---
 
 <PageLayout
-  title="Writing — pfeif.garden"
-  description="Thinking out loud about tools, expression, and the software we live inside."
-  currentPage="/writing"
+  title="Lab — pfeif.garden"
+  description="Apps, experiments, playlists, art, and other things that don't fit in a blog post."
+  currentPage="/lab"
 >
-  <section class="writing-index wrapper" data-width="narrow">
+  <section class="lab-index wrapper" data-width="narrow">
 
-    <header class="writing-index__header stack" style="--stack-space: var(--spacing-4);">
-      <p class="writing-index__label">Writing</p>
-      <h1 class="writing-index__title">Thinking out loud.</h1>
-      <p class="writing-index__sub">
-        Essays, notes, and half-formed thoughts about tools, expression, and the software we live inside.
+    <header class="lab-index__header stack" style="--stack-space: var(--spacing-4);">
+      <p class="lab-index__label">Lab</p>
+      <h1 class="lab-index__title">Things I made.</h1>
+      <p class="lab-index__sub">
+        Apps, experiments, playlists, art, and other things that don't fit in a blog post.
       </p>
     </header>
 
-    {posts.length === 0 ? (
-      <p class="writing-index__empty">Nothing here yet. Check back soon.</p>
+    {items.length === 0 ? (
+      <p class="lab-index__empty">Nothing here yet. Check back soon.</p>
     ) : (
-      <div class="writing-index__posts">
-        {posts.map(post => (
+      <div class="lab-index__items">
+        {items.map(item => (
           <IndexCard
-            title={post.data.title}
-            description={post.data.description}
-            publishDate={post.data.publishDate}
-            href={`/writing/${post.id}`}
-            type={post.data.type}
-            growthStage={post.data.growthStage}
+            title={item.data.title}
+            description={item.data.description}
+            publishDate={item.data.publishDate}
+            href={`/lab/${item.id}`}
+            type={item.data.type}
+            growthStage={item.data.growthStage}
+            externalUrl={item.data.externalUrl}
           />
         ))}
       </div>
@@ -43,17 +44,17 @@ const posts = (await getCollection('writing', ({ data }) => !data.draft))
 </PageLayout>
 
 <style>
-  .writing-index {
+  .lab-index {
     padding-block: var(--spacing-16);
   }
 
-  .writing-index__header {
+  .lab-index__header {
     margin-block-end: var(--spacing-12);
     padding-block-end: var(--spacing-8);
     border-bottom: 1px solid var(--color-border-subtle);
   }
 
-  .writing-index__label {
+  .lab-index__label {
     font-family: var(--font-sans);
     font-size: var(--text-sm);
     font-weight: 500;
@@ -63,7 +64,7 @@ const posts = (await getCollection('writing', ({ data }) => !data.draft))
     margin: 0;
   }
 
-  .writing-index__title {
+  .lab-index__title {
     font-family: var(--font-display);
     font-size: clamp(var(--text-4xl), 6vw, var(--text-6xl));
     font-weight: 800;
@@ -74,7 +75,7 @@ const posts = (await getCollection('writing', ({ data }) => !data.draft))
     margin: 0;
   }
 
-  .writing-index__sub {
+  .lab-index__sub {
     font-family: var(--font-serif);
     font-size: var(--text-lg);
     line-height: var(--leading-relaxed);
@@ -82,7 +83,7 @@ const posts = (await getCollection('writing', ({ data }) => !data.draft))
     margin: 0;
   }
 
-  .writing-index__empty {
+  .lab-index__empty {
     font-family: var(--font-serif);
     color: var(--color-text-muted);
     padding-block: var(--spacing-12);

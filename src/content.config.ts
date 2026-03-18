@@ -1,7 +1,7 @@
 import { defineCollection } from 'astro:content';
 import { z } from 'zod';
 
-const blog = defineCollection({
+const writing = defineCollection({
   type: 'content',
   schema: z.object({
     title: z.string(),
@@ -10,41 +10,44 @@ const blog = defineCollection({
     updatedDate: z.coerce.date().optional(),
 
     // Organization
+    type: z.enum(['essay', 'note', 'playlist', 'art', 'video', 'other']).default('essay'),
     tags: z.array(z.string()).default([]),
-    series: z.string().optional(),       // e.g. "Building Loam"
-    collection: z.string().optional(),   // broader grouping if needed
+    series: z.string().optional(),
 
     // Display
-    growthStage: z.enum(['seedling', 'budding', 'evergreen']).default('seedling'),
-    featured: z.boolean().default(false),
+    growthStage: z.enum(['draft', 'active', 'complete']).default('draft'),
+    highlight: z.boolean().default(false),
     draft: z.boolean().default(false),
-    coverImage: z.string().optional(),   // path or URL — used for OG/social cards
+    coverImage: z.string().optional(),
 
     // Syndication
-    atprotoUri: z.string().optional(),   // AT URI after crossposting to Bluesky
+    atprotoUri: z.string().optional(),
   }),
 });
 
-const portfolio = defineCollection({
+const lab = defineCollection({
   type: 'content',
   schema: z.object({
     title: z.string(),
-    description: z.string(),           // short tagline for cards
-    year: z.number().optional(),
-
-    // Media
-    coverImage: z.string().optional(), // hero image for the card/page
-    images: z.array(z.string()).default([]),
-
-    // Links
-    url: z.url().optional(),
-    repo: z.url().optional(),
+    description: z.string(),
+    publishDate: z.coerce.date(),
+    updatedDate: z.coerce.date().optional(),
 
     // Organization
+    type: z.enum(['app', 'playlist', 'art', 'video', 'experiment', 'other']).default('experiment'),
     tags: z.array(z.string()).default([]),
-    featured: z.boolean().default(false),
+
+    // Media
+    coverImage: z.string().optional(),
+
+    // Links
+    externalUrl: z.string().url().optional(),
+
+    // Display
+    growthStage: z.enum(['draft', 'active', 'complete']).default('draft'),
+    highlight: z.boolean().default(false),
     draft: z.boolean().default(false),
   }),
 });
 
-export const collections = { blog, portfolio };
+export const collections = { writing, lab };
