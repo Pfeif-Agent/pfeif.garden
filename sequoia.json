@@ -1,0 +1,13 @@
+{
+  "$schema": "https://tangled.org/stevedylan.dev/sequoia/raw/main/sequoia.schema.json",
+  "siteUrl": "https://pfeif.garden",
+  "contentDir": "./src/content/writing",
+  "outputDir": "./dist",
+  "pathPrefix": "/writing",
+  "publicationUri": "at://did:plc:qpqndv7eygmebyqbguc345nk/site.standard.publication/3mhez5absed2k",
+  "publishContent": true,
+  "bluesky": {
+    "enabled": true,
+    "maxAgeDays": 1
+  }
+}

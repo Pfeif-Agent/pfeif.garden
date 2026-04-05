@@ -1,0 +1,92 @@
+---
+import { getCollection } from 'astro:content';
+import PageLayout from '../../layouts/PageLayout.astro';
+import IndexCard from '../../components/IndexCard.astro';
+
+const items = (await getCollection('lab', ({ data }) => !data.draft))
+  .sort((a, b) => b.data.publishDate.valueOf() - a.data.publishDate.valueOf());
+---
+
+<PageLayout
+  title="Lab — pfeif.garden"
+  description="Apps, experiments, playlists, art, and other things that don't fit in a blog post."
+  currentPage="/lab"
+>
+  <section class="lab-index wrapper" data-width="narrow">
+
+    <header class="lab-index__header stack" style="--stack-space: var(--spacing-4);">
+      <p class="lab-index__label">Lab</p>
+      <h1 class="lab-index__title">Things I made.</h1>
+      <p class="lab-index__sub">
+        Apps, experiments, playlists, art, and other things that don't fit in a blog post.
+      </p>
+    </header>
+
+    {items.length === 0 ? (
+      <p class="lab-index__empty">Nothing here yet. Check back soon.</p>
+    ) : (
+      <div class="lab-index__items">
+        {items.map(item => (
+          <IndexCard
+            title={item.data.title}
+            description={item.data.description}
+            publishDate={item.data.publishDate}
+            href={`/lab/${item.id}`}
+            type={item.data.type}
+            growthStage={item.data.growthStage}
+            externalUrl={item.data.externalUrl}
+          />
+        ))}
+      </div>
+    )}
+
+  </section>
+</PageLayout>
+
+<style>
+  .lab-index {
+    padding-block: var(--spacing-16);
+  }
+
+  .lab-index__header {
+    margin-block-end: var(--spacing-12);
+    padding-block-end: var(--spacing-8);
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+
+  .lab-index__label {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    letter-spacing: var(--tracking-widest);
+    text-transform: uppercase;
+    color: var(--color-accent);
+    margin: 0;
+  }
+
+  .lab-index__title {
+    font-family: var(--font-display);
+    font-size: clamp(var(--text-4xl), 6vw, var(--text-6xl));
+    font-weight: 800;
+    letter-spacing: var(--tracking-tight);
+    line-height: var(--leading-tight);
+    text-transform: uppercase;
+    color: var(--color-text);
+    margin: 0;
+  }
+
+  .lab-index__sub {
+    font-family: var(--font-serif);
+    font-size: var(--text-lg);
+    line-height: var(--leading-relaxed);
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+
+  .lab-index__empty {
+    font-family: var(--font-serif);
+    color: var(--color-text-muted);
+    padding-block: var(--spacing-12);
+    text-align: center;
+  }
+</style>

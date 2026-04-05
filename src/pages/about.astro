@@ -1,0 +1,108 @@
+---
+import PageLayout from '../layouts/PageLayout.astro';
+---
+
+<PageLayout
+  title="About — pfeif.garden"
+  description="Jacob Pfeifer — multidisciplinary designer, AC4D graduate, ultimate frisbee player."
+  currentPage="/about"
+>
+  <section class="about wrapper" data-width="narrow">
+
+    <header class="about__header stack" style="--stack-space: var(--spacing-4);">
+      <p class="about__label">About</p>
+      <h1 class="about__title">Hi, I'm Jacob.</h1>
+    </header>
+
+    <div class="about__body flow">
+
+      <p>
+        I'm a multidisciplinary designer with a focus on research and information architecture.
+        I'm passionate about disentangling ambiguity to create intuitive and accessible experiences —
+        and most interested in civic design and problems where user-centered design can meaningfully
+        improve quality of life for vulnerable communities.
+      </p>
+
+      <p>
+        I recently graduated from the <a href="https://ac4d.com" target="_blank" rel="noopener noreferrer">Austin Center for Design</a>,
+        where I earned a certificate in Interaction Design and Social Entrepreneurship. AC4D is a school
+        built around wicked problems. I honed my skills in design research, sense-making, ideation,
+        storytelling, usability testing, and interaction design — and learned to ask the right questions
+        to get the most out of an idea, whether in user research, generative ideation, or design review.
+      </p>
+
+      <p>
+        I believe design has incredible power. We create objects, spaces, tools, and experiences that
+        shape the world — and everything we design designs us back. I approach every project with
+        inclusivity, compassion, and a focus on equity, hoping those values eventually reflect back
+        into the world.
+      </p>
+
+      <p>
+        I also love technology. Before settling on design, I dabbled in Python scripting, front-end
+        web development, and data visualization. That technical background lets me collaborate closely
+        with developers and stay comfortable in the handoff between design and engineering.
+      </p>
+
+      <p>
+        Outside of work, you can probably find me throwing a frisbee. I've been an ultimate frisbee
+        player and organizer for the past eight years — it's shaped how I think about equity,
+        teamwork, and leadership. I also love discovering new music (send me whatever's on repeat)
+        and cheering on the US men's and women's national soccer teams.
+      </p>
+
+    </div>
+
+  </section>
+</PageLayout>
+
+<style>
+  .about {
+    padding-block: var(--spacing-16);
+  }
+
+  .about__header {
+    margin-block-end: var(--spacing-12);
+    padding-block-end: var(--spacing-8);
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+
+  .about__label {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    letter-spacing: var(--tracking-widest);
+    text-transform: uppercase;
+    color: var(--color-accent);
+    margin: 0;
+  }
+
+  .about__title {
+    font-family: var(--font-display);
+    font-size: clamp(var(--text-4xl), 6vw, var(--text-6xl));
+    font-weight: 800;
+    letter-spacing: var(--tracking-tight);
+    line-height: var(--leading-tight);
+    text-transform: uppercase;
+    color: var(--color-text);
+    margin: 0;
+  }
+
+  .about__body {
+    --flow-space: var(--spacing-6);
+    font-family: var(--font-serif);
+    font-size: var(--text-lg);
+    line-height: var(--leading-relaxed);
+    color: var(--color-text-secondary);
+  }
+
+  .about__body a {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .about__body a:hover {
+    color: var(--color-text);
+  }
+</style>
