@@ -2,7 +2,7 @@
 title: Ecological Computing
 description: I think we might have coined the future of the internet?
 publishDate: 2026-04-05
-draft: false
+draft: true
 tags:
   - blog
 type: essay
