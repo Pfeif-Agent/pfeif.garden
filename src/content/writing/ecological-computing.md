@@ -3,12 +3,11 @@ title: Ecological Computing
 description: I think we might have coined the future of the internet?
 publishDate: 2026-04-05
 draft: false
-highlight: true
 tags:
   - blog
 type: essay
 growthStage: active
-highlight: false
+highlight: true
 ---
 
 To the people who are visiting my site after reading my posts on [Bluesky about Ecological Computing](https://tbsky.app/profile/pfeif.garden/post/3mirenqi2ac2w), welcome to my Garden!
