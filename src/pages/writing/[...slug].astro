@@ -1,26 +1,61 @@
 ---
 import { getCollection, render } from 'astro:content';
+import { marked } from 'marked';
+import { getAtprotoPosts } from '../../lib/atproto';
 import PostLayout from '../../layouts/PostLayout.astro';
 
 export async function getStaticPaths() {
-  const posts = await getCollection('writing', ({ data }) => !data.draft);
-  return posts.map(post => ({
-    params: { slug: post.id },
-    props: { post },
+  const [mdPosts, atPosts] = await Promise.all([
+    getCollection('writing', ({ data }) => !data.draft),
+    getAtprotoPosts(),
+  ]);
+
+  // ATProto is canonical — skip any MD post whose slug matches an ATProto post
+  const atSlugs = new Set(atPosts.map(p => p.slug));
+
+  const mdPaths = mdPosts
+    .filter(post => !atSlugs.has(post.id))
+    .map(post => ({
+      params: { slug: post.id },
+      props: { source: 'md' as const, mdPost: post, atPost: undefined },
+    }));
+
+  const atPaths = atPosts.map(post => ({
+    params: { slug: post.slug },
+    props: { source: 'at' as const, mdPost: undefined, atPost: post },
   }));
+
+  return [...mdPaths, ...atPaths];
 }
 
-const { post } = Astro.props;
-const { Content } = await render(post);
+const { source, mdPost, atPost } = Astro.props;
+
+// Render MD content if needed
+const rendered = source === 'md' ? await render(mdPost!) : null;
+const MdContent = rendered?.Content;
 ---
 
-<PostLayout
-  title={post.data.title}
-  description={post.data.description}
-  publishDate={post.data.publishDate}
-  updatedDate={post.data.updatedDate}
-  growthStage={post.data.growthStage}
-  tags={post.data.tags}
->
-  <Content />
-</PostLayout>
+{source === 'at' ? (
+  <PostLayout
+    title={atPost!.title}
+    description={atPost!.description}
+    publishDate={atPost!.publishDate}
+    updatedDate={atPost!.updatedDate}
+    tags={atPost!.tags}
+    atUri={atPost!.uri}
+  >
+    <Fragment set:html={marked.parse(atPost!.markdown)} />
+  </PostLayout>
+) : (
+  <PostLayout
+    title={mdPost!.data.title}
+    description={mdPost!.data.description}
+    publishDate={mdPost!.data.publishDate}
+    updatedDate={mdPost!.data.updatedDate}
+    growthStage={mdPost!.data.growthStage}
+    tags={mdPost!.data.tags}
+    atUri={mdPost!.data.atprotoUri}
+  >
+    {MdContent && <MdContent />}
+  </PostLayout>
+)}

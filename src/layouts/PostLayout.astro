@@ -9,9 +9,10 @@ interface Props {
   updatedDate?: Date;
   growthStage?: 'draft' | 'active' | 'complete';
   tags?: string[];
+  atUri?: string;
 }
 
-const { title, description, publishDate, updatedDate, growthStage, tags = [] } = Astro.props;
+const { title, description, publishDate, updatedDate, growthStage, tags = [], atUri } = Astro.props;
 
 const formattedPublish = publishDate.toLocaleDateString('en-US', {
   year: 'numeric',
@@ -31,6 +32,9 @@ const formattedUpdated = updatedDate?.toLocaleDateString('en-US', {
   description={description}
   currentPage="/writing"
 >
+  {atUri && (
+    <link rel="site.standard.document" href={atUri} slot="head" />
+  )}
   <article class="post wrapper" data-width="narrow">
 
     <header class="post__header stack" style="--stack-space: var(--spacing-4);">

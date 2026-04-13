@@ -1,10 +1,39 @@
 ---
 import { getCollection } from 'astro:content';
+import { getAtprotoPosts } from '../../lib/atproto';
 import PageLayout from '../../layouts/PageLayout.astro';
 import IndexCard from '../../components/IndexCard.astro';
 
-const posts = (await getCollection('writing', ({ data }) => !data.draft))
-  .sort((a, b) => b.data.publishDate.valueOf() - a.data.publishDate.valueOf());
+const [mdPosts, atPosts] = await Promise.all([
+  getCollection('writing', ({ data }) => !data.draft),
+  getAtprotoPosts(),
+]);
+
+// ATProto is canonical — exclude MD posts whose slug is covered by ATProto
+const atSlugs = new Set(atPosts.map(p => p.slug));
+
+const mdItems = mdPosts
+  .filter(post => !atSlugs.has(post.id))
+  .map(post => ({
+    title: post.data.title,
+    description: post.data.description,
+    publishDate: post.data.publishDate,
+    href: `/writing/${post.id}`,
+    type: post.data.type,
+    growthStage: post.data.growthStage,
+  }));
+
+const atItems = atPosts.map(post => ({
+  title: post.title,
+  description: post.description,
+  publishDate: post.publishDate,
+  href: `/writing/${post.slug}`,
+  type: 'essay' as const,
+  growthStage: undefined,
+}));
+
+const posts = [...mdItems, ...atItems]
+  .sort((a, b) => b.publishDate.valueOf() - a.publishDate.valueOf());
 ---
 
 <PageLayout
@@ -28,12 +57,12 @@ const posts = (await getCollection('writing', ({ data }) => !data.draft))
       <div class="writing-index__posts">
         {posts.map(post => (
           <IndexCard
-            title={post.data.title}
-            description={post.data.description}
-            publishDate={post.data.publishDate}
-            href={`/writing/${post.id}`}
-            type={post.data.type}
-            growthStage={post.data.growthStage}
+            title={post.title}
+            description={post.description}
+            publishDate={post.publishDate}
+            href={post.href}
+            type={post.type}
+            growthStage={post.growthStage}
           />
         ))}
       </div>

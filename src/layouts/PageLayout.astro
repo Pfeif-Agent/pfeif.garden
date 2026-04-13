@@ -24,6 +24,7 @@ const { title, description, currentPage } = Astro.props;
 ---
 
 <BaseLayout title={title} description={description}>
+  <slot name="head" slot="head" />
   <div class="page-wrap">
     <SiteNav currentPage={currentPage} />
     <main class="page-main">
