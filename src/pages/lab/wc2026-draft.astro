@@ -1,0 +1,567 @@
+---
+// World Cup 2026 — The Thread fantasy draft.
+// Phase 1 (static) rendered from data + Phase 2 (live ESPN layer, progressive enhancement).
+// Static markup is the source of truth; the client script only ADDS live data and degrades
+// gracefully if JS is off or ESPN is unreachable. Spec/algorithm: src/lib/wc2026/reference/.
+
+import { MANAGERS, TEAMS, SCORING, TEAM_BY_NAME } from "../../data/draft";
+import { FIXTURES, FIXTURE_BY_NUM } from "../../lib/wc2026/fixtures";
+import { projectBracket, oddsRanking, GROUPS } from "../../lib/wc2026/bracket";
+
+// ---- derived helpers ---------------------------------------------------------
+
+const colorOf = (mgr: number) => MANAGERS[mgr]?.color ?? "#66716B";
+const nameOf = (mgr: number) => MANAGERS[mgr]?.name ?? "—";
+
+/** Odds-tier class for favorite highlighting (DESIGN.md). */
+function oddsTier(oddsValue: number): "fav" | "mid" | "" {
+  if (oddsValue <= 9) return "fav";
+  if (oddsValue <= 150) return "mid";
+  return "";
+}
+
+// US-Eastern (UTC-4, tournament window) localization of kickoffUTC.
+// This is a server-side stopgap; the client script re-localizes to the viewer's zone.
+const ET = "America/New_York";
+const dtf = new Intl.DateTimeFormat("en-US", {
+  timeZone: ET, hour: "2-digit", minute: "2-digit", hour12: false,
+});
+const ddf = new Intl.DateTimeFormat("en-US", {
+  timeZone: ET, weekday: "short", month: "short", day: "numeric",
+});
+const etTime = (iso: string) => dtf.format(new Date(iso));
+const etDateKey = (iso: string) => ddf.format(new Date(iso)); // "Thu, Jun 11"
+
+// ---- bracket projection ------------------------------------------------------
+
+const projection = projectBracket(); // pre-tournament odds projection
+const winnerOfMatch = projection.winnerOfMatch;
+const resolveSlot = projection.resolveSlot;
+
+/** Round-tag abbreviations for the schedule/bracket. */
+const ROUND_TAG: Record<string, string> = {
+  "Round of 32": "R32", "Round of 16": "R16", "Quarter-final": "QF",
+  "Semi-final": "SF", "Match for third place": "3rd", Final: "Final",
+};
+
+/** A team name resolved for display, with its owner color (or neutral if unowned). */
+function teamView(name: string) {
+  const t = TEAM_BY_NAME[name];
+  return {
+    name,
+    mgr: t ? t.manager : null,
+    color: t ? colorOf(t.manager) : "#66716B",
+    mgrName: t ? nameOf(t.manager) : null,
+  };
+}
+
+// ---- Upcoming: all 104 fixtures grouped by ET calendar day -------------------
+
+interface SchedRow {
+  num: number; time: string; t1: ReturnType<typeof teamView>;
+  t2: ReturnType<typeof teamView>; tag: string; predicted: boolean;
+  group: string | null;
+}
+const schedByDay = new Map<string, SchedRow[]>();
+const dayOrder: string[] = [];
+for (const m of [...FIXTURES].sort((a, b) => a.kickoffUTC.localeCompare(b.kickoffUTC))) {
+  const day = etDateKey(m.kickoffUTC);
+  if (!schedByDay.has(day)) { schedByDay.set(day, []); dayOrder.push(day); }
+  const predicted = m.stage === "knockout";
+  schedByDay.get(day)!.push({
+    num: m.num,
+    time: etTime(m.kickoffUTC),
+    t1: teamView(resolveSlot(m.team1)),
+    t2: teamView(resolveSlot(m.team2)),
+    tag: m.group ? m.group : (ROUND_TAG[m.round] ?? m.round),
+    predicted,
+    group: m.group,
+  });
+}
+
+// ---- Bracket: knockout matches grouped by round ------------------------------
+
+const KO_ROUNDS = [
+  { round: "Round of 32", dt: "Jun 28 – Jul 3" },
+  { round: "Round of 16", dt: "Jul 4–7" },
+  { round: "Quarter-final", dt: "Jul 9–11" },
+  { round: "Semi-final", dt: "Jul 14–15" },
+  { round: "Match for third place", dt: "Jul 18" },
+  { round: "Final", dt: "Jul 19" },
+];
+interface BrkMatch {
+  num: number; t1: ReturnType<typeof teamView>; t2: ReturnType<typeof teamView>;
+  winner: string; // odds-projected advancer (visual only; 3rd-place still shows one)
+}
+function bracketRound(round: string): BrkMatch[] {
+  return FIXTURES.filter((m) => m.stage === "knockout" && m.round === round)
+    .sort((a, b) => a.num - b.num)
+    .map((m) => {
+      const t1n = resolveSlot(m.team1);
+      const t2n = resolveSlot(m.team2);
+      // 3rd-place: scores 0, but the page still highlights an odds advancer.
+      const winner = round === "Match for third place"
+        ? (TEAM_BY_NAME[t1n]?.oddsValue ?? Infinity) <= (TEAM_BY_NAME[t2n]?.oddsValue ?? Infinity) ? t1n : t2n
+        : winnerOfMatch(m.num);
+      return { num: m.num, t1: teamView(t1n), t2: teamView(t2n), winner };
+    });
+}
+const championView = teamView(projection.champion);
+
+// ---- Rosters (per manager, draft order) --------------------------------------
+
+const rosters = MANAGERS.map((mgr, i) => ({
+  ...mgr, index: i,
+  teams: TEAMS.filter((t) => t.manager === i).sort((a, b) => a.pick - b.pick),
+}));
+
+// ---- By group (teams ordered by odds within group) ---------------------------
+
+const groupCards = GROUPS.map((g) => ({
+  group: g,
+  teams: oddsRanking(g).map((name) => TEAM_BY_NAME[name]).filter(Boolean),
+}));
+
+// ---- Draft board (overall snake order) ---------------------------------------
+
+const board = [...TEAMS].sort((a, b) => a.pick - b.pick);
+
+// ---- Scoring ladder (from SCORING — the locked B+2 values) -------------------
+
+const championMax = 9 + SCORING.advanceToR32 + SCORING.winR32 + SCORING.winR16 +
+  SCORING.winQF + SCORING.winSF + SCORING.winFinal;
+const scoringRows: [string, number][] = [
+  ["Group stage — win", SCORING.groupWin],
+  ["Group stage — draw", SCORING.groupDraw],
+  ["Advance out of the group (reach R32)", SCORING.advanceToR32],
+  ["Win in Round of 32", SCORING.winR32],
+  ["Win in Round of 16", SCORING.winR16],
+  ["Win in Quarter-final", SCORING.winQF],
+  ["Win in Semi-final", SCORING.winSF],
+  ["Win the Final", SCORING.winFinal],
+];
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script is:inline>document.documentElement.classList.add('js')</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>World Cup 2026 Draft · The Thread</title>
+<meta name="description" content="The Thread fantasy World Cup 2026 — three managers, a 48-team snake draft, scored by how far each team goes.">
+<meta property="og:title" content="World Cup 2026 Draft · The Thread">
+<meta property="og:description" content="Three managers, a 48-team snake draft, scored by how far each team goes.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style is:global>
+:root{
+  --ground:#0B0E0D; --panel:#141816; --panel-2:#0F1311; --line:#272D29;
+  --chalk:#F2F5EE; --sage:#97A59E; --sage-dim:#66716B; --gold:#F2C14E; --grass:#38D17A;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--ground); color:var(--chalk);
+  font-family:Inter,system-ui,sans-serif; line-height:1.4;
+  background-image:radial-gradient(120% 80% at 50% -10%, #11150F 0%, var(--ground) 55%);
+  min-height:100vh; padding:0 0 64px;
+}
+.wrap{max-width:980px; margin:0 auto; padding:28px 18px 0}
+.mono{font-family:"JetBrains Mono",monospace}
+
+/* back navigation */
+.backnav{display:flex; align-items:center; gap:8px; padding-top:20px; padding-bottom:0;
+  font-family:"JetBrains Mono",monospace; font-size:12px; letter-spacing:.04em}
+.backnav a{color:var(--sage); text-decoration:none; border-radius:6px; padding:3px 6px; margin:-3px -6px;
+  transition:color .12s}
+.backnav a:hover{color:var(--chalk)}
+.backnav a:focus-visible{outline:2px solid var(--gold); outline-offset:2px; color:var(--chalk)}
+.backnav__sep{color:var(--sage-dim)}
+main.wrap{padding-top:8px}
+.visually-hidden{position:absolute!important; width:1px; height:1px; margin:-1px; padding:0;
+  overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0}
+
+/* header */
+.eyebrow{font-family:"JetBrains Mono",monospace; font-size:11px; font-weight:700; letter-spacing:.22em;
+  text-transform:uppercase; color:var(--sage-dim)}
+h1{font-family:Anton,sans-serif; font-weight:400; letter-spacing:.01em; line-height:.92;
+  font-size:clamp(40px,11vw,82px); margin:8px 0 6px; text-transform:uppercase}
+h1 .yr{color:var(--gold)}
+.sub{color:var(--sage); font-size:14px; margin:0 0 18px}
+.chips{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:26px; list-style:none; padding:0}
+.mchip{display:inline-flex; align-items:center; gap:8px; font-weight:600; font-size:14px;
+  background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:7px 14px 7px 10px}
+.mchip .sw{width:11px; height:11px; border-radius:3px; background:var(--rc)}
+
+/* tabs */
+.tabs{display:flex; gap:4px; background:var(--panel-2); border:1px solid var(--line);
+  border-radius:12px; padding:4px; margin-bottom:18px; flex-wrap:wrap}
+.tabs button{font-family:"JetBrains Mono",monospace; font-size:12px; font-weight:700; letter-spacing:.05em;
+  text-transform:uppercase; color:var(--sage); cursor:pointer; padding:9px 13px; border-radius:9px;
+  user-select:none; transition:background .12s,color .12s; background:none; border:0; font:inherit;
+  font-size:12px; font-weight:700; letter-spacing:.05em; text-transform:uppercase}
+.tabs button:hover{color:var(--chalk)}
+.tabs button[aria-selected="true"]{background:var(--chalk); color:#10130F}
+.tabs button:focus-visible{outline:2px solid var(--gold); outline-offset:2px}
+/* No-JS: the tablist is purely decorative and every panel shows (one long scroll).
+   With JS (.js on <html>): collapse to one panel at a time, toggled via [hidden]. */
+html:not(.js) .tabs{display:none}
+.js .panel{display:none}
+.js .panel:not([hidden]){display:block}
+/* a panel heading before each section so the no-JS scroll is navigable */
+.panel-title{display:none}
+html:not(.js) .panel-title{display:block; font-family:"JetBrains Mono",monospace; font-size:12px;
+  font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--gold);
+  margin:24px 2px 12px; padding-top:18px; border-top:1px solid var(--line)}
+
+/* shared team bits */
+.dot{width:9px; height:9px; border-radius:50%; flex:none}
+.od{font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--sage-dim); flex:none}
+.od.fav{color:var(--gold)} .od.mid{color:var(--sage)}
+.elim .tn,.elim.tn{text-decoration:line-through; opacity:.5}
+
+/* rosters */
+.rosters{display:grid; grid-template-columns:repeat(3,1fr); gap:14px}
+.roster{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px 14px 8px;
+  border-top:3px solid var(--rc)}
+.roster .rh{display:flex; align-items:center; gap:9px; margin-bottom:10px}
+.roster .rh .sw{width:13px; height:13px; border-radius:4px; background:var(--rc)}
+.roster .rh .rn{font-weight:700; font-size:17px}
+.roster .rh .rc{margin-left:auto; font-family:"JetBrains Mono",monospace; font-size:12px; color:var(--sage-dim)}
+.roster ol{list-style:none; margin:0; padding:0}
+.roster li{display:flex; align-items:center; gap:9px; padding:7px 2px; border-top:1px solid rgba(255,255,255,.04)}
+.roster li:first-child{border-top:0}
+.pk{font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--sage-dim); width:30px; flex:none}
+.tn{font-weight:600; font-size:14px; flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.gp{font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--sage-dim); width:14px; text-align:right; flex:none}
+
+/* by-group */
+.groups{display:grid; grid-template-columns:repeat(3,1fr); gap:12px}
+.grp{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px}
+.grp .gh{font-family:"JetBrains Mono",monospace; font-size:11px; font-weight:700; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--sage-dim); margin-bottom:8px}
+.grp ul{list-style:none; margin:0; padding:0}
+.grp li{display:flex; align-items:center; gap:8px; padding:5px 0}
+.grp .mn,.board .mn{font-family:"JetBrains Mono",monospace; font-size:10px; flex:none}
+.grp .stat{font-family:"JetBrains Mono",monospace; font-size:10px; color:var(--sage-dim); flex:none; margin-left:auto}
+.grp li.adv .tn{color:var(--chalk)} .grp li.adv-pos .pos{color:var(--grass)}
+.grp .pos{font-family:"JetBrains Mono",monospace; font-size:10px; color:var(--sage-dim); width:12px; flex:none}
+
+/* draft board */
+.board{list-style:none; margin:0; padding:0; columns:2; column-gap:14px}
+.board li{display:flex; align-items:center; gap:9px; padding:8px 12px; margin-bottom:6px;
+  background:var(--panel); border:1px solid var(--line); border-radius:9px; break-inside:avoid}
+
+/* upcoming schedule */
+.legend{display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; margin:0 2px 16px;
+  font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--sage-dim)}
+.legend .key{display:inline-flex; align-items:center; gap:6px}
+.legend .swp{width:22px; height:14px; border-radius:4px; border:1px dashed var(--sage-dim); background:var(--panel)}
+.sched-day{margin-bottom:14px}
+.sched-date{font-family:"JetBrains Mono",monospace; font-size:11px; font-weight:700; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--sage-dim); display:flex; align-items:center; gap:8px; margin:0 2px 7px}
+.sched-date::after{content:""; flex:1; height:1px; background:var(--line)}
+.match{display:flex; align-items:center; gap:8px; background:var(--panel); border:1px solid var(--line);
+  border-radius:10px; padding:9px 12px; margin-bottom:6px}
+.match.pred{border-style:dashed; border-color:#2f352f; background:var(--panel-2)}
+.match.today{border-color:var(--gold)}
+.match .mt-time{font-family:"JetBrains Mono",monospace; font-size:10px; color:var(--sage-dim); width:46px; flex:none}
+.match .tcell{display:flex; align-items:center; gap:7px; flex:1; min-width:0}
+.match .tcell.r{justify-content:flex-end}
+.match .tcell .tn{font-size:14px}
+.match.pred .tcell .tn{color:var(--sage)}
+.match .vs{font-family:"JetBrains Mono",monospace; font-size:10px; color:var(--sage-dim); flex:none}
+.match .sc{font-family:"JetBrains Mono",monospace; font-size:13px; font-weight:700; color:var(--chalk); flex:none}
+.match .live-dot{width:7px;height:7px;border-radius:50%;background:var(--grass);flex:none;
+  box-shadow:0 0 0 3px rgba(56,209,122,.18)}
+.match .mtag{font-family:"JetBrains Mono",monospace; font-size:9px; font-weight:700; letter-spacing:.05em;
+  color:var(--sage-dim); border:1px solid var(--line); border-radius:5px; padding:2px 5px; flex:none; min-width:34px; text-align:center}
+.match.pred .mtag{color:var(--gold); border-color:#4a3f1e}
+
+/* bracket */
+.brk-note{font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--sage-dim); margin:0 2px 14px; line-height:1.6}
+.champ{display:flex; align-items:center; gap:12px; border:1px solid var(--gold); border-radius:12px;
+  background:radial-gradient(120% 140% at 50% 0%, rgba(242,193,78,.14), transparent 60%),var(--panel);
+  padding:14px 18px; margin-bottom:20px}
+.champ .lab{font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--sage)}
+.champ .cn{font-family:Anton,sans-serif; font-weight:400; text-transform:uppercase; font-size:26px; letter-spacing:.01em}
+.champ .cdot{width:13px; height:13px; border-radius:4px}
+.brk-round{margin-bottom:18px}
+.brk-head{font-family:"JetBrains Mono",monospace; font-size:11px; font-weight:700; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--sage); display:flex; align-items:center; gap:8px; margin:0 2px 9px}
+.brk-head .dt{color:var(--sage-dim); font-weight:500; letter-spacing:.06em}
+.brk-head::after{content:""; flex:1; height:1px; background:var(--line)}
+.mugrid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px}
+.matchup{background:var(--panel-2); border:1px solid var(--line); border-radius:10px; padding:7px; border-style:dashed; border-color:#2f352f}
+.matchup.confirmed{border-style:solid; border-color:var(--line); background:var(--panel)}
+.mu-team{display:flex; align-items:center; gap:7px; padding:5px 6px; border-radius:7px}
+.mu-team .tn{font-size:13px; font-weight:600; color:var(--sage); flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.mu-team .sc{font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--sage-dim); flex:none}
+.mu-team.win{background:rgba(255,255,255,.04)}
+.mu-team.win .tn{color:var(--chalk)}
+.mu-team.win .adv{font-family:"JetBrains Mono",monospace; font-size:9px; color:var(--grass); flex:none}
+
+/* standings */
+.lead{display:grid; gap:10px; margin-bottom:22px}
+.lead .lrow{display:flex; align-items:center; gap:12px; background:var(--panel); border:1px solid var(--line);
+  border-left:4px solid var(--rc); border-radius:12px; padding:13px 16px}
+.lead .lrank{font-family:"JetBrains Mono",monospace; font-size:13px; color:var(--sage-dim); width:22px; flex:none}
+.lead .lname{font-weight:700; font-size:17px; flex:1}
+.lead .lalive{font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--sage-dim); flex:none}
+.lead .lpts{font-family:"JetBrains Mono",monospace; font-weight:700; font-size:20px; color:var(--gold); flex:none}
+.stand-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:14px}
+.stand-card{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px 14px 8px; border-top:3px solid var(--rc)}
+.stand-card .rh{display:flex; align-items:center; gap:9px; margin-bottom:10px}
+.stand-card .rh .sw{width:13px; height:13px; border-radius:4px; background:var(--rc)}
+.stand-card .rh .rn{font-weight:700; font-size:16px}
+.stand-card .rh .rc{margin-left:auto; font-family:"JetBrains Mono",monospace; font-size:12px; color:var(--gold)}
+.stand-card ol{list-style:none; margin:0; padding:0}
+.stand-card li{display:flex; align-items:center; gap:9px; padding:7px 2px; border-top:1px solid rgba(255,255,255,.04)}
+.stand-card li:first-child{border-top:0}
+.stand-card .sstage{font-family:"JetBrains Mono",monospace; font-size:10px; color:var(--sage-dim); flex:none}
+.stand-card .spts{font-family:"JetBrains Mono",monospace; font-size:12px; font-weight:700; color:var(--gold); width:24px; text-align:right; flex:none}
+
+/* scoring */
+details.ladder{margin:26px 0 0; background:var(--panel-2); border:1px solid var(--line); border-radius:12px; padding:0 14px}
+details.ladder summary{cursor:pointer; padding:14px 0; font-family:"JetBrains Mono",monospace; font-size:12px;
+  font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--sage); list-style:none}
+details.ladder summary::-webkit-details-marker{display:none}
+details.ladder summary::after{content:"+"; float:right; color:var(--sage-dim)}
+details.ladder[open] summary::after{content:"\2013"}
+.lad{display:grid; grid-template-columns:1fr auto; gap:0 16px; padding:2px 0 16px; font-size:14px}
+.lad .row{display:contents}
+.lad .row > div{padding:7px 0; border-top:1px solid rgba(255,255,255,.05)}
+.lad .row .pts{font-family:"JetBrains Mono",monospace; font-weight:700; color:var(--gold); text-align:right}
+.lad .note{grid-column:1/-1; color:var(--sage-dim); font-size:12px; padding-top:10px; border-top:1px solid rgba(255,255,255,.05)}
+
+footer{max-width:980px; margin:34px auto 0; padding:0 18px; color:var(--sage-dim); font-size:12.5px}
+footer .live{display:inline-flex; align-items:center; gap:8px; color:var(--sage); font-family:"JetBrains Mono",monospace;
+  font-size:11px; letter-spacing:.08em; text-transform:uppercase}
+footer .live::before{content:""; width:7px; height:7px; border-radius:50%; background:var(--grass); box-shadow:0 0 0 3px rgba(56,209,122,.18)}
+footer .live.offline::before{background:var(--sage-dim); box-shadow:none}
+
+@media(max-width:760px){
+  .rosters,.stand-grid{grid-template-columns:1fr}
+  .groups{grid-template-columns:1fr 1fr}
+  .board{columns:1}
+  .mugrid{grid-template-columns:1fr 1fr}
+}
+@media(max-width:430px){ .groups{grid-template-columns:1fr} .mugrid{grid-template-columns:1fr} }
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<nav class="backnav wrap" aria-label="Breadcrumb">
+  <a href="/" class="backnav__home">pfeif.garden</a>
+  <span class="backnav__sep" aria-hidden="true">/</span>
+  <a href="/lab" class="backnav__lab">lab</a>
+</nav>
+<main class="wrap">
+  <p class="eyebrow">The Thread · Fantasy Draft</p>
+  <h1>World Cup <span class="yr">2026</span></h1>
+  <p class="sub">48 teams · 3 managers · snake draft · 16 apiece</p>
+  <ul class="chips" aria-label="Managers">
+    {MANAGERS.map((m) => (
+      <li class="mchip" style={`--rc:${m.color}`}><span class="sw" aria-hidden="true"></span>{m.name}</li>
+    ))}
+  </ul>
+
+  <div class="tabswrap">
+    <div class="tabs" role="tablist" aria-label="Views">
+      <button role="tab" id="tab-upcoming" aria-controls="p-upcoming" aria-selected="true">Upcoming</button>
+      <button role="tab" id="tab-standings" aria-controls="p-standings" aria-selected="false">Standings</button>
+      <button role="tab" id="tab-bracket" aria-controls="p-bracket" aria-selected="false">Bracket</button>
+      <button role="tab" id="tab-rosters" aria-controls="p-rosters" aria-selected="false">Rosters</button>
+      <button role="tab" id="tab-groups" aria-controls="p-groups" aria-selected="false">By group</button>
+      <button role="tab" id="tab-board" aria-controls="p-board" aria-selected="false">Draft board</button>
+    </div>
+
+    <div class="panels">
+      {/* ---- Upcoming ---- */}
+      <section class="panel" id="p-upcoming" role="tabpanel" aria-labelledby="tab-upcoming" tabindex="0">
+        <h2 class="panel-title">Upcoming</h2>
+        <p class="legend">
+          <span class="key"><span class="swp" aria-hidden="true"></span>predicted matchup (locks in as results come)</span>
+        </p>
+        {dayOrder.map((day) => (
+          <div class="sched-day">
+            <h2 class="sched-date">{day}</h2>
+            {schedByDay.get(day)!.map((r) => (
+              <div class="match" class:list={[{ pred: r.predicted }]} data-match={r.num} data-stage={r.predicted ? "knockout" : "group"}>
+                <span class="mt-time" data-kickoff={FIXTURE_BY_NUM[r.num].kickoffUTC}>{r.time}</span>
+                <span class="tcell">
+                  <span class="dot" style={`background:${r.t1.color}`} aria-hidden="true"></span>
+                  <span class="tn" data-team={r.t1.name} data-slot={FIXTURE_BY_NUM[r.num].team1}>{r.t1.name}{r.t1.mgrName && <span class="visually-hidden"> (drafted by {r.t1.mgrName})</span>}</span>
+                </span>
+                <span class="vs" aria-hidden="true">v</span>
+                <span class="tcell r">
+                  <span class="tn" data-team={r.t2.name} data-slot={FIXTURE_BY_NUM[r.num].team2}>{r.t2.name}{r.t2.mgrName && <span class="visually-hidden"> (drafted by {r.t2.mgrName})</span>}</span>
+                  <span class="dot" style={`background:${r.t2.color}`} aria-hidden="true"></span>
+                </span>
+                <span class="mtag">{r.tag}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </section>
+
+      {/* ---- Standings (live; static fallback shown until JS hydrates) ---- */}
+      <section class="panel" id="p-standings" role="tabpanel" aria-labelledby="tab-standings" tabindex="0">
+        <h2 class="panel-title">Standings</h2>
+        <p class="brk-note" data-standings-note>Live standings appear here once the tournament starts. Points follow the B+2 ladder below.</p>
+        <div class="lead" data-leaderboard>
+          {rosters.map((r, i) => (
+            <div class="lrow" style={`--rc:${r.color}`} data-mgr={i}>
+              <span class="lrank">{i + 1}</span>
+              <span class="lname">{r.name}</span>
+              <span class="lalive" data-alive></span>
+              <span class="lpts" data-mgr-pts>0</span>
+            </div>
+          ))}
+        </div>
+        <div class="stand-grid">
+          {rosters.map((r, i) => (
+            <div class="stand-card" style={`--rc:${r.color}`} data-mgr-card={i}>
+              <div class="rh"><span class="sw" aria-hidden="true"></span><span class="rn">{r.name}</span><span class="rc" data-mgr-pts>0</span></div>
+              <ol>
+                {r.teams.map((t) => (
+                  <li data-team-row={t.name}>
+                    <span class="dot" style={`background:${r.color}`} aria-hidden="true"></span>
+                    <span class="tn" data-team={t.name}>{t.name}</span>
+                    <span class="sstage" data-stage-label></span>
+                    <span class="spts" data-team-pts>0</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ---- Bracket ---- */}
+      <section class="panel" id="p-bracket" role="tabpanel" aria-labelledby="tab-bracket" tabindex="0">
+        <h2 class="panel-title">Bracket</h2>
+        <p class="brk-note">Projected from pre-tournament odds. Every matchup is a prediction — dashed and dimmed — until results confirm it: group winners and runners-up lock as each group finishes, the best-third slots resolve once the group stage ends, and each knockout round locks as it's played.</p>
+        <div class="champ" data-champ>
+          <span class="cdot" style={`background:${championView.color}`} aria-hidden="true"></span>
+          <div>
+            <div class="lab" data-champ-label>Projected champion</div>
+            <div class="cn" data-champ-name>{championView.name}</div>
+          </div>
+        </div>
+        {KO_ROUNDS.map(({ round, dt }) => (
+          <div class="brk-round" data-round={round}>
+            <h2 class="brk-head">{round}<span class="dt">{dt}</span></h2>
+            <div class="mugrid">
+              {bracketRound(round).map((mu) => (
+                <div class="matchup" data-match={mu.num}>
+                  {[mu.t1, mu.t2].map((tm, idx) => {
+                    const slotCode = idx === 0 ? FIXTURE_BY_NUM[mu.num].team1 : FIXTURE_BY_NUM[mu.num].team2;
+                    const isWin = tm.name === mu.winner;
+                    return (
+                      <div class="mu-team" class:list={[{ win: isWin }]} data-team={tm.name} data-slot={slotCode}>
+                        <span class="dot" style={`background:${tm.color}`} aria-hidden="true"></span>
+                        <span class="tn">{tm.name}{tm.mgrName && <span class="visually-hidden"> (drafted by {tm.mgrName})</span>}</span>
+                        <span class="sc" data-score hidden></span>
+                        {isWin && <span class="adv" aria-label="projected to advance">▸</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </section>
+
+      {/* ---- Rosters ---- */}
+      <section class="panel" id="p-rosters" role="tabpanel" aria-labelledby="tab-rosters" tabindex="0">
+        <h2 class="panel-title">Rosters</h2>
+        <div class="rosters">
+          {rosters.map((r) => (
+            <div class="roster" style={`--rc:${r.color}`}>
+              <div class="rh"><span class="sw" aria-hidden="true"></span><span class="rn">{r.name}</span><span class="rc">{r.teams.length} / 16</span></div>
+              <ol>
+                {r.teams.map((t) => (
+                  <li data-team-row={t.name}>
+                    <span class="pk">#{t.pick}</span>
+                    <span class="tn" data-team={t.name}>{t.name}</span>
+                    <span class={`od ${oddsTier(t.oddsValue)}`}>{t.odds}</span>
+                    <span class="gp" aria-label={`Group ${t.group}`}>{t.group}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ---- By group ---- */}
+      <section class="panel" id="p-groups" role="tabpanel" aria-labelledby="tab-groups" tabindex="0">
+        <h2 class="panel-title">By group</h2>
+        <div class="groups">
+          {groupCards.map((gc) => (
+            <div class="grp" data-group={gc.group}>
+              <h2 class="gh">Group {gc.group}</h2>
+              <ul>
+                {gc.teams.map((t, idx) => (
+                  <li data-team-row={t.name} data-pos={idx + 1}>
+                    <span class="pos" data-pos-label>{idx + 1}</span>
+                    <span class="dot" style={`background:${colorOf(t.manager)}`} aria-hidden="true"></span>
+                    <span class="tn" data-team={t.name}>{t.name}</span>
+                    <span class={`od ${oddsTier(t.oddsValue)}`}>{t.odds}</span>
+                    <span class="mn" style={`color:${colorOf(t.manager)}`}>{nameOf(t.manager)}</span>
+                    <span class="stat" data-group-stat hidden></span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ---- Draft board ---- */}
+      <section class="panel" id="p-board" role="tabpanel" aria-labelledby="tab-board" tabindex="0">
+        <h2 class="panel-title">Draft board</h2>
+        <ol class="board">
+          {board.map((t) => (
+            <li data-team-row={t.name}>
+              <span class="pk">#{t.pick}</span>
+              <span class="dot" style={`background:${colorOf(t.manager)}`} aria-hidden="true"></span>
+              <span class="tn" data-team={t.name}>{t.name}</span>
+              <span class="gp" aria-label={`Group ${t.group}`}>{t.group}</span>
+              <span class={`od ${oddsTier(t.oddsValue)}`}>{t.odds}</span>
+              <span class="mn" style={`color:${colorOf(t.manager)}`}>{nameOf(t.manager)}</span>
+            </li>
+          ))}
+        </ol>
+      </section>
+    </div>
+  </div>
+
+  <details class="ladder">
+    <summary>How scoring works</summary>
+    <div class="lad">
+      {scoringRows.map(([label, pts]) => (
+        <div class="row"><div>{label}</div><div class="pts">{pts}</div></div>
+      ))}
+      <p class="note">Points go to whoever drafted the team. Knockout points are for advancing (winner decided by penalties if needed). The third-place playoff is worth nothing. A team that wins its group and goes all the way is worth exactly {championMax}.</p>
+    </div>
+  </details>
+</main>
+
+<footer>
+  <p class="live" data-live-status aria-live="polite">Live scores &amp; standings — coming soon</p>
+  <p>Odds are pre-tournament title prices (BetMGM). Group fixtures are final; knockout matchups are projected from those odds and refresh from live results when available, with eliminated teams greyed out.</p>
+</footer>
+
+<script>
+  import { initLive } from "../../lib/wc2026/live.client";
+  import { initTabs } from "../../lib/wc2026/tabs.client";
+  initTabs();
+  initLive();
+</script>
+</body>
+</html>

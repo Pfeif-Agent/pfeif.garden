@@ -24,6 +24,21 @@ import SxswApp from '../../components/SxswApp.jsx';
     </script>
   </head>
   <body style="margin:0;padding:0;background:#09090b;">
+    <nav class="backnav" aria-label="Breadcrumb">
+      <a href="/">pfeif.garden</a>
+      <span aria-hidden="true">/</span>
+      <a href="/lab">lab</a>
+    </nav>
     <SxswApp client:only="react" />
+    <style is:global>
+      .backnav{position:fixed; top:12px; left:14px; z-index:1000; display:flex; align-items:center; gap:7px;
+        font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; letter-spacing:.04em;
+        background:rgba(9,9,11,.7); backdrop-filter:blur(6px); padding:6px 10px; border-radius:8px;
+        border:1px solid rgba(255,255,255,.08)}
+      .backnav a{color:#a1a1aa; text-decoration:none; transition:color .12s}
+      .backnav a:hover{color:#fafafa}
+      .backnav a:focus-visible{outline:2px solid #fafafa; outline-offset:2px; color:#fafafa; border-radius:4px}
+      .backnav span{color:#52525b}
+    </style>
   </body>
 </html>
