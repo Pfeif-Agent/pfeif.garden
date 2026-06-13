@@ -21,16 +21,21 @@ function oddsTier(oddsValue: number): "fav" | "mid" | "" {
 }
 
 // US-Eastern (UTC-4, tournament window) localization of kickoffUTC.
-// This is a server-side stopgap; the client script re-localizes to the viewer's zone.
+// This is a server-side stopgap; the client script re-localizes the visible time to the
+// viewer's zone. Day-GROUPING uses US Central — it matches every fixture's venue-local
+// date (a 9pm-Pacific kickoff is still "tonight" in CT, but tips past midnight in ET),
+// so late West-Coast games land under the correct day. (Confirmed: 0/104 mismatches vs
+// the fixtures' own `date` field.)
 const ET = "America/New_York";
+const CT = "America/Chicago";
 const dtf = new Intl.DateTimeFormat("en-US", {
   timeZone: ET, hour: "2-digit", minute: "2-digit", hour12: false,
 });
 const ddf = new Intl.DateTimeFormat("en-US", {
-  timeZone: ET, weekday: "short", month: "short", day: "numeric",
+  timeZone: CT, weekday: "short", month: "short", day: "numeric",
 });
 const etTime = (iso: string) => dtf.format(new Date(iso));
-const etDateKey = (iso: string) => ddf.format(new Date(iso)); // "Thu, Jun 11"
+const etDateKey = (iso: string) => ddf.format(new Date(iso)); // "Thu, Jun 11" (CT day)
 
 // ---- bracket projection ------------------------------------------------------
 
@@ -159,12 +164,15 @@ const scoringRows: [string, number][] = [
 :root{
   --ground:#0B0E0D; --panel:#141816; --panel-2:#0F1311; --line:#272D29;
   --chalk:#F2F5EE; --sage:#97A59E; --sage-dim:#66716B; --gold:#F2C14E; --grass:#38D17A;
+  /* schedule column track, shared by the label bar and every match row so columns
+     line up across day groups. tag | time | home | score | away */
+  --sched-cols:44px 56px 1fr 56px 1fr;
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{
   margin:0; background:var(--ground); color:var(--chalk);
-  font-family:Inter,system-ui,sans-serif; line-height:1.4;
+  font-family:Inter,system-ui,sans-serif; font-size:16px; line-height:1.4;
   background-image:radial-gradient(120% 80% at 50% -10%, #11150F 0%, var(--ground) 55%);
   min-height:100vh; padding:0 0 64px;
 }
@@ -255,30 +263,56 @@ html:not(.js) .panel-title{display:block; font-family:"JetBrains Mono",monospace
   background:var(--panel); border:1px solid var(--line); border-radius:9px; break-inside:avoid}
 
 /* upcoming schedule */
-.legend{display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; margin:0 2px 16px;
-  font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--sage-dim)}
-.legend .key{display:inline-flex; align-items:center; gap:6px}
-.legend .swp{width:22px; height:14px; border-radius:4px; border:1px dashed var(--sage-dim); background:var(--panel)}
-.sched-day{margin-bottom:14px}
-.sched-date{font-family:"JetBrains Mono",monospace; font-size:11px; font-weight:700; letter-spacing:.12em;
-  text-transform:uppercase; color:var(--sage-dim); display:flex; align-items:center; gap:8px; margin:0 2px 7px}
+.legend{display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; margin:0 4px 16px;
+  font-family:"JetBrains Mono",monospace; font-size:12px; color:var(--sage-dim)}
+.legend .key{display:inline-flex; align-items:center; gap:8px}
+.legend .swp{width:4px; height:16px; border-radius:2px; background:var(--sage-dim)}
+.legend .swp.done{background:var(--line)} .legend .swp.live{background:var(--grass)}
+.legend .swp.today{background:var(--gold)} .legend .swp.tbd{background:repeating-linear-gradient(
+  -45deg,var(--sage-dim) 0 2px,transparent 2px 4px)}
+
+/* shared grid track for the sticky label bar + every match row */
+.sched-labels,.match{display:grid; grid-template-columns:var(--sched-cols);
+  align-items:center; column-gap:8px}
+
+.sched-labels{position:sticky; top:0; z-index:5; background:var(--ground);
+  padding:8px 12px 8px 15px; margin-bottom:8px; border-bottom:1px solid var(--line);
+  font-family:"JetBrains Mono",monospace; font-size:12px; font-weight:700; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--sage-dim)}
+.sched-labels .c{text-align:center} .sched-labels .r{text-align:right}
+
+.sched-day{margin-bottom:16px}
+.sched-day:first-of-type{scroll-margin-top:48px}
+.sched-date{font-family:"JetBrains Mono",monospace; font-size:12px; font-weight:700; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--sage-dim); display:flex; align-items:center; gap:8px; margin:0 4px 8px}
 .sched-date::after{content:""; flex:1; height:1px; background:var(--line)}
-.match{display:flex; align-items:center; gap:8px; background:var(--panel); border:1px solid var(--line);
-  border-radius:10px; padding:9px 12px; margin-bottom:6px}
-.match.pred{border-style:dashed; border-color:#2f352f; background:var(--panel-2)}
-.match.today{border-color:var(--gold)}
-.match .mt-time{font-family:"JetBrains Mono",monospace; font-size:10px; color:var(--sage-dim); width:46px; flex:none}
-.match .tcell{display:flex; align-items:center; gap:7px; flex:1; min-width:0}
-.match .tcell.r{justify-content:flex-end}
-.match .tcell .tn{font-size:14px}
-.match.pred .tcell .tn{color:var(--sage)}
-.match .vs{font-family:"JetBrains Mono",monospace; font-size:10px; color:var(--sage-dim); flex:none}
-.match .sc{font-family:"JetBrains Mono",monospace; font-size:13px; font-weight:700; color:var(--chalk); flex:none}
-.match .live-dot{width:7px;height:7px;border-radius:50%;background:var(--grass);flex:none;
-  box-shadow:0 0 0 3px rgba(56,209,122,.18)}
-.match .mtag{font-family:"JetBrains Mono",monospace; font-size:9px; font-weight:700; letter-spacing:.05em;
-  color:var(--sage-dim); border:1px solid var(--line); border-radius:5px; padding:2px 5px; flex:none; min-width:34px; text-align:center}
-.match.pred .mtag{color:var(--gold); border-color:#4a3f1e}
+
+.match{position:relative; background:var(--panel); border:1px solid var(--line);
+  border-left:3px solid var(--line); border-radius:8px; padding:8px 12px; margin-bottom:8px}
+/* five-state left accent bar, keyed off data-state (set statically + by the live script) */
+.match[data-state="live"]{border-left-color:var(--grass); background:linear-gradient(
+  90deg,rgba(56,209,122,.06),transparent 40%),var(--panel)}
+.match[data-state="today"]{border-left-color:var(--gold)}
+.match[data-state="done"]{border-left-color:var(--line); background:var(--panel-2)}
+.match[data-state="tbd"]{border-style:dashed; border-left-style:solid;
+  border-color:#2f352f; border-left-color:var(--sage-dim); background:var(--panel-2)}
+
+.match .mtag{font-family:"JetBrains Mono",monospace; font-size:12px; font-weight:700; letter-spacing:.04em;
+  color:var(--sage-dim); text-align:center}
+.match[data-state="tbd"] .mtag{color:var(--gold)}
+.match .mt-time{font-family:"JetBrains Mono",monospace; font-size:12px; color:var(--sage)}
+.match[data-state="today"] .mt-time{color:var(--gold)}
+.match[data-state="live"] .mt-time{color:var(--grass)}
+
+.match .tcell{display:flex; align-items:center; gap:8px; min-width:0}
+.match .tcell.r{justify-self:end; justify-content:flex-end}
+.match .tcell .tn{font-size:16px; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.match[data-state="tbd"] .tcell .tn{color:var(--sage)}
+.match .tcell.win .tn{font-weight:700}
+
+.match .sc-slot{justify-self:center; text-align:center; min-width:0}
+.match .sc-ph{font-family:"JetBrains Mono",monospace; font-size:12px; color:var(--sage-dim)}
+.match .sc{font-family:"JetBrains Mono",monospace; font-size:16px; font-weight:700; color:var(--chalk)}
 
 /* bracket */
 .brk-note{font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--sage-dim); margin:0 2px 14px; line-height:1.6}
@@ -348,7 +382,13 @@ footer .live.offline::before{background:var(--sage-dim); box-shadow:none}
   .board{columns:1}
   .mugrid{grid-template-columns:1fr 1fr}
 }
-@media(max-width:430px){ .groups{grid-template-columns:1fr} .mugrid{grid-template-columns:1fr} }
+@media(max-width:430px){
+  .groups{grid-template-columns:1fr} .mugrid{grid-template-columns:1fr}
+  /* phone schedule: drop time+tag columns to zero-width; fold time into the time-spot
+     via a smaller home column. tag | time | home | score | away -> tighter tracks */
+  :root{--sched-cols:32px 44px 1fr 44px 1fr}
+  .match .mtag{font-size:11px} .match .tcell .tn{font-size:15px}
+}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -370,7 +410,7 @@ footer .live.offline::before{background:var(--sage-dim); box-shadow:none}
 
   <div class="tabswrap">
     <div class="tabs" role="tablist" aria-label="Views">
-      <button role="tab" id="tab-upcoming" aria-controls="p-upcoming" aria-selected="true">Upcoming</button>
+      <button role="tab" id="tab-upcoming" aria-controls="p-upcoming" aria-selected="true">Schedule</button>
       <button role="tab" id="tab-standings" aria-controls="p-standings" aria-selected="false">Standings</button>
       <button role="tab" id="tab-bracket" aria-controls="p-bracket" aria-selected="false">Bracket</button>
       <button role="tab" id="tab-rosters" aria-controls="p-rosters" aria-selected="false">Rosters</button>
@@ -381,26 +421,34 @@ footer .live.offline::before{background:var(--sage-dim); box-shadow:none}
     <div class="panels">
       {/* ---- Upcoming ---- */}
       <section class="panel" id="p-upcoming" role="tabpanel" aria-labelledby="tab-upcoming" tabindex="0">
-        <h2 class="panel-title">Upcoming</h2>
+        <h2 class="panel-title">Schedule</h2>
         <p class="legend">
-          <span class="key"><span class="swp" aria-hidden="true"></span>predicted matchup (locks in as results come)</span>
+          <span class="key"><span class="swp live" aria-hidden="true"></span>live</span>
+          <span class="key"><span class="swp done" aria-hidden="true"></span>final</span>
+          <span class="key"><span class="swp today" aria-hidden="true"></span>today</span>
+          <span class="key"><span class="swp" aria-hidden="true"></span>upcoming</span>
+          <span class="key"><span class="swp tbd" aria-hidden="true"></span>teams TBD (projected)</span>
         </p>
+        <div class="sched-labels" aria-hidden="true">
+          <span>Stage</span><span>Time</span><span>Home</span><span class="c">Score</span><span class="r">Away</span>
+        </div>
         {dayOrder.map((day) => (
           <div class="sched-day">
             <h2 class="sched-date">{day}</h2>
             {schedByDay.get(day)!.map((r) => (
-              <div class="match" class:list={[{ pred: r.predicted }]} data-match={r.num} data-stage={r.predicted ? "knockout" : "group"}>
+              <div class="match" class:list={[{ pred: r.predicted }]} data-match={r.num}
+                   data-stage={r.predicted ? "knockout" : "group"} data-state={r.predicted ? "tbd" : "future"}>
+                <span class="mtag">{r.tag}</span>
                 <span class="mt-time" data-kickoff={FIXTURE_BY_NUM[r.num].kickoffUTC}>{r.time}</span>
                 <span class="tcell">
                   <span class="dot" style={`background:${r.t1.color}`} aria-hidden="true"></span>
                   <span class="tn" data-team={r.t1.name} data-slot={FIXTURE_BY_NUM[r.num].team1}>{r.t1.name}{r.t1.mgrName && <span class="visually-hidden"> (drafted by {r.t1.mgrName})</span>}</span>
                 </span>
-                <span class="vs" aria-hidden="true">v</span>
+                <span class="sc-slot"><span class="sc-ph" aria-hidden="true">–</span></span>
                 <span class="tcell r">
                   <span class="tn" data-team={r.t2.name} data-slot={FIXTURE_BY_NUM[r.num].team2}>{r.t2.name}{r.t2.mgrName && <span class="visually-hidden"> (drafted by {r.t2.mgrName})</span>}</span>
                   <span class="dot" style={`background:${r.t2.color}`} aria-hidden="true"></span>
                 </span>
-                <span class="mtag">{r.tag}</span>
               </div>
             ))}
           </div>

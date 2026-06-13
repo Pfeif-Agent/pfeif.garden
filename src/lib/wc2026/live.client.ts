@@ -11,6 +11,14 @@ import type { LiveSnapshot } from "./espn.client";
 
 const POLL_MS = 75_000;
 
+// "Today" is judged in US Central — the same zone the schedule groups days by — so a match's
+// highlight matches the day bucket it sits under. (Judging in UTC misfiled late West-Coast
+// kickoffs, which roll past midnight UTC but are still "tonight" in CT.) en-CA yields YYYY-MM-DD.
+const CT_DAY = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Chicago", year: "numeric", month: "2-digit", day: "2-digit",
+});
+const ctDateKey = (d: Date): string => CT_DAY.format(d);
+
 let timer: number | null = null;
 let consecutiveErrors = 0;
 
@@ -88,7 +96,7 @@ function applySnapshot(snap: LiveSnapshot, fromCache: boolean): void {
 // ---- 2d. Upcoming: live scores/status, real KO teams, today highlight -------
 
 function patchUpcoming(snap: LiveSnapshot, state: ReturnType<typeof deriveLiveState>): void {
-  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayKey = ctDateKey(new Date());
   document.querySelectorAll<HTMLElement>('.match[data-match]').forEach((row) => {
     const num = Number(row.dataset.match);
     const fx = FIXTURE_BY_NUM[num];
@@ -96,38 +104,53 @@ function patchUpcoming(snap: LiveSnapshot, state: ReturnType<typeof deriveLiveSt
     const res = snap.results[num];
 
     // resolve knockout teams from the live bracket as they're determined.
+    let confirmed = true;
     if (fx.stage === "knockout") {
       const t1 = state.bracket.resolveSlot(fx.team1);
       const t2 = state.bracket.resolveSlot(fx.team2);
-      const confirmed = state.confirmedSlots.has(t1) && state.confirmedSlots.has(t2);
+      confirmed = state.confirmedSlots.has(t1) && state.confirmedSlots.has(t2);
       setTeamCell(row.querySelectorAll<HTMLElement>(".tcell")[0], t1);
       setTeamCell(row.querySelectorAll<HTMLElement>(".tcell")[1], t2);
       row.classList.toggle("pred", !confirmed);
     }
 
-    // today highlight (by the row's kickoff date in viewer zone)
     const k = row.querySelector<HTMLElement>(".mt-time")?.dataset.kickoff;
-    if (k) row.classList.toggle("today", new Date(k).toISOString().slice(0, 10) === todayKey);
+    const isToday = !!k && ctDateKey(new Date(k)) === todayKey;
 
-    if (!res) return;
-    // status + score
-    let scoreEl = row.querySelector<HTMLElement>(".sc");
-    if (res.state !== "pre" && res.score1 != null && res.score2 != null) {
+    // five-state machine: live > done > today > tbd > future.
+    let stateName: string;
+    if (res?.state === "in") stateName = "live";
+    else if (res?.completed) stateName = "done";
+    else if (fx.stage === "knockout" && !confirmed) stateName = "tbd";
+    else if (isToday) stateName = "today";
+    else stateName = "future";
+    row.dataset.state = stateName;
+
+    // status + score, written into the persistent .sc-slot (replaces the old "v").
+    const slot = row.querySelector<HTMLElement>(".sc-slot");
+    if (slot && res && res.state !== "pre" && res.score1 != null && res.score2 != null) {
+      let scoreEl = slot.querySelector<HTMLElement>(".sc");
       if (!scoreEl) {
         scoreEl = document.createElement("span");
         scoreEl.className = "sc";
-        row.querySelector(".vs")?.replaceWith(scoreEl);
+        slot.replaceChildren(scoreEl); // drops the "–" placeholder
       }
       scoreEl.textContent = `${res.score1}–${res.score2}`;
+      const status = res.completed ? ", final" : res.state === "in" ? ", in progress" : "";
+      scoreEl.setAttribute("aria-label", `${res.score1} to ${res.score2}${status}`);
     }
-    // live dot
-    row.querySelector(".live-dot")?.remove();
-    if (res.state === "in") {
-      const dot = document.createElement("span");
-      dot.className = "live-dot";
-      dot.setAttribute("aria-label", "in progress");
-      row.prepend(dot);
+
+    // winner emphasis on completed matches (mirrors the bracket's .adv treatment).
+    const cells = row.querySelectorAll<HTMLElement>(".tcell");
+    cells.forEach((c) => c.classList.remove("win"));
+    if (res?.completed && res.winner) {
+      cells.forEach((c) => {
+        if (c.querySelector<HTMLElement>(".tn")?.dataset.team === res.winner) c.classList.add("win");
+      });
     }
+
+    // live games are signalled by the grass accent bar + green kickoff time (state-driven CSS)
+    // and the score's "in progress" aria-label — no separate orb.
   });
 }
 
