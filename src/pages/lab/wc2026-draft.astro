@@ -170,6 +170,11 @@ const scoringRows: [string, number][] = [
      exactly and a long name (e.g. "Bosnia & Herzegovina") ellipsises instead of overflowing
      (plain 1fr is minmax(auto,1fr), whose `auto` floor won't shrink below the name). */
   --sched-cols:64px minmax(0,1fr) auto minmax(0,1fr);
+  /* cap the schedule grid width: wider than this and home-vs-away gets hard to scan
+     (the eye travels too far across the row). derived from the comfortable reading
+     width seen in testing — the label bar + match rows all share this ceiling so
+     their columns stay aligned. */
+  --sched-max:635px;
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
@@ -274,11 +279,14 @@ html:not(.js) .panel-title{display:block; font-family:"JetBrains Mono",monospace
 .legend .swp.today{background:var(--gold)} .legend .swp.tbd{background:repeating-linear-gradient(
   -45deg,var(--sage-dim) 0 2px,transparent 2px 4px)}
 
-/* shared grid track for the sticky label bar + every match row */
+/* shared grid track for the sticky label bar + every match row.
+   12px column-gap (not 8) so the score sits clear of both team names — at narrow
+   widths an 8px gap let the right-aligned away name crowd the scoreline. */
 .sched-labels,.match{display:grid; grid-template-columns:var(--sched-cols);
-  align-items:center; column-gap:8px}
+  align-items:center; column-gap:12px}
 
 .sched-labels{position:sticky; top:0; z-index:5; background:var(--ground);
+  max-width:var(--sched-max);
   padding:8px 12px 8px 15px; margin-bottom:8px; border-bottom:1px solid var(--line);
   font-family:"JetBrains Mono",monospace; font-size:12px; font-weight:700; letter-spacing:.08em;
   text-transform:uppercase; color:var(--sage-dim)}
@@ -286,7 +294,7 @@ html:not(.js) .panel-title{display:block; font-family:"JetBrains Mono",monospace
 .sched-labels .when{display:flex; flex-direction:column; gap:2px; line-height:1.2}
 .sched-labels .when > span{display:block}
 
-.sched-day{margin-bottom:16px}
+.sched-day{max-width:var(--sched-max); margin-bottom:16px}
 .sched-day:first-of-type{scroll-margin-top:48px}
 .sched-date{font-family:"JetBrains Mono",monospace; font-size:12px; font-weight:700; letter-spacing:.12em;
   text-transform:uppercase; color:var(--sage-dim); display:flex; align-items:center; gap:8px; margin:0 4px 8px}
