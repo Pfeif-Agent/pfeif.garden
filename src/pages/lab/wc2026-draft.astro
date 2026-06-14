@@ -270,6 +270,40 @@ html:not(.js) .panel-title{display:block; font-family:"JetBrains Mono",monospace
 .board li{display:flex; align-items:center; gap:9px; padding:8px 12px; margin-bottom:6px;
   background:var(--panel); border:1px solid var(--line); border-radius:9px; break-inside:avoid}
 
+/* ---- Main view: two-column dashboard (schedule | standings+groups) ----
+   Three atomic blocks placed by grid-area so they reorder cleanly per breakpoint:
+     wide  -> schedule fills the left column (it's tall) and spans both rows;
+              standings sits top-right, groups under it.
+     phone -> single column, standings first (the headline), then schedule, then groups.
+   Left track is pinned to --sched-max so the schedule keeps its scan-width cap and the
+   right column takes whatever's left of the 980px page wrap. */
+.maingrid{display:grid; gap:0 24px;
+  grid-template-columns:var(--sched-max) minmax(0,1fr);
+  grid-template-areas:
+    "sched stand"
+    "sched groups"
+    "sched .";
+  align-items:start}
+.main-left{grid-area:sched; min-width:0}
+.main-standings{grid-area:stand; min-width:0}
+.main-groups{grid-area:groups; min-width:0; margin-top:18px}
+/* in the narrow right column the standings cards stack one-up, and groups go two-up.
+   Both scoped to the wide layout; below 880 the blocks linearize and inherit the
+   ordinary responsive .stand-grid / .groups rules. */
+@media(min-width:881px){
+  .main-standings .stand-grid{grid-template-columns:1fr}
+  .groups--side{grid-template-columns:1fr 1fr}
+}
+/* the right column's section headings shouldn't carry the no-JS top border/padding here */
+.main-standings > .panel-title,.main-groups > .panel-title{display:none}
+
+@media(max-width:880px){
+  /* not enough width for a useful right column: linearize to standings -> schedule -> groups */
+  .maingrid{grid-template-columns:1fr;
+    grid-template-areas:"stand" "sched" "groups"}
+  .main-groups{margin-top:24px}
+}
+
 /* upcoming schedule */
 .legend{display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; margin:0 4px 16px;
   font-family:"JetBrains Mono",monospace; font-size:12px; color:var(--sage-dim)}
@@ -456,17 +490,18 @@ footer .live.offline::before{background:var(--sage-dim); box-shadow:none}
 
   <div class="tabswrap">
     <div class="tabs" role="tablist" aria-label="Views">
-      <button role="tab" id="tab-upcoming" aria-controls="p-upcoming" aria-selected="true">Schedule</button>
-      <button role="tab" id="tab-standings" aria-controls="p-standings" aria-selected="false">Standings</button>
+      <button role="tab" id="tab-main" aria-controls="p-main" aria-selected="true">Main</button>
       <button role="tab" id="tab-bracket" aria-controls="p-bracket" aria-selected="false">Bracket</button>
-      <button role="tab" id="tab-rosters" aria-controls="p-rosters" aria-selected="false">Rosters</button>
-      <button role="tab" id="tab-groups" aria-controls="p-groups" aria-selected="false">By group</button>
       <button role="tab" id="tab-board" aria-controls="p-board" aria-selected="false">Draft board</button>
     </div>
 
     <div class="panels">
-      {/* ---- Upcoming ---- */}
-      <section class="panel" id="p-upcoming" role="tabpanel" aria-labelledby="tab-upcoming" tabindex="0">
+      {/* ---- Main: schedule (left) + standings & groups (right) ---- */}
+      <section class="panel" id="p-main" role="tabpanel" aria-labelledby="tab-main" tabindex="0">
+        <div class="maingrid">
+
+        {/* LEFT column: the schedule */}
+        <div class="main-left">
         <h2 class="panel-title">Schedule</h2>
         <p class="legend">
           <span class="key"><span class="swp live" aria-hidden="true"></span>live</span>
@@ -501,10 +536,10 @@ footer .live.offline::before{background:var(--sage-dim); box-shadow:none}
             ))}
           </div>
         ))}
-      </section>
+        </div>{/* /.main-left */}
 
-      {/* ---- Standings (live; static fallback shown until JS hydrates) ---- */}
-      <section class="panel" id="p-standings" role="tabpanel" aria-labelledby="tab-standings" tabindex="0">
+        {/* RIGHT column, top: standings */}
+        <div class="main-standings">
         <h2 class="panel-title">Standings</h2>
         <p class="brk-note" data-standings-note>Live standings appear here once the tournament starts. Points follow the B+2 ladder below.</p>
         <div class="stand-grid" data-leaderboard>
@@ -532,6 +567,34 @@ footer .live.offline::before{background:var(--sage-dim); box-shadow:none}
             </div>
           ))}
         </div>
+
+        </div>{/* /.main-standings */}
+
+        {/* RIGHT column, bottom: groups */}
+        <div class="main-groups">
+        <h2 class="panel-title">By group</h2>
+        <div class="groups groups--side">
+          {groupCards.map((gc) => (
+            <div class="grp" data-group={gc.group}>
+              <h2 class="gh">Group {gc.group}</h2>
+              <ul>
+                {gc.teams.map((t, idx) => (
+                  <li data-team-row={t.name} data-pos={idx + 1}>
+                    <span class="pos" data-pos-label>{idx + 1}</span>
+                    <span class="dot" style={`background:${colorOf(t.manager)}`} aria-hidden="true"></span>
+                    <span class="tn" data-team={t.name}>{t.name}</span>
+                    <span class={`od ${oddsTier(t.oddsValue)}`}>{t.odds}</span>
+                    <span class="mn" style={`color:${colorOf(t.manager)}`}>{nameOf(t.manager)}</span>
+                    <span class="stat" data-group-stat hidden></span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+        </div>{/* /.main-groups */}
+
+        </div>{/* /.maingrid */}
       </section>
 
       {/* ---- Bracket ---- */}
@@ -568,52 +631,6 @@ footer .live.offline::before{background:var(--sage-dim); box-shadow:none}
             </div>
           </div>
         ))}
-      </section>
-
-      {/* ---- Rosters ---- */}
-      <section class="panel" id="p-rosters" role="tabpanel" aria-labelledby="tab-rosters" tabindex="0">
-        <h2 class="panel-title">Rosters</h2>
-        <div class="rosters">
-          {rosters.map((r) => (
-            <div class="roster" style={`--rc:${r.color}`}>
-              <div class="rh"><span class="sw" aria-hidden="true"></span><span class="rn">{r.name}</span><span class="rc">{r.teams.length} / 16</span></div>
-              <ol>
-                {r.teams.map((t) => (
-                  <li data-team-row={t.name}>
-                    <span class="pk">#{t.pick}</span>
-                    <span class="tn" data-team={t.name}>{t.name}</span>
-                    <span class={`od ${oddsTier(t.oddsValue)}`}>{t.odds}</span>
-                    <span class="gp" aria-label={`Group ${t.group}`}>{t.group}</span>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ---- By group ---- */}
-      <section class="panel" id="p-groups" role="tabpanel" aria-labelledby="tab-groups" tabindex="0">
-        <h2 class="panel-title">By group</h2>
-        <div class="groups">
-          {groupCards.map((gc) => (
-            <div class="grp" data-group={gc.group}>
-              <h2 class="gh">Group {gc.group}</h2>
-              <ul>
-                {gc.teams.map((t, idx) => (
-                  <li data-team-row={t.name} data-pos={idx + 1}>
-                    <span class="pos" data-pos-label>{idx + 1}</span>
-                    <span class="dot" style={`background:${colorOf(t.manager)}`} aria-hidden="true"></span>
-                    <span class="tn" data-team={t.name}>{t.name}</span>
-                    <span class={`od ${oddsTier(t.oddsValue)}`}>{t.odds}</span>
-                    <span class="mn" style={`color:${colorOf(t.manager)}`}>{nameOf(t.manager)}</span>
-                    <span class="stat" data-group-stat hidden></span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
       </section>
 
       {/* ---- Draft board ---- */}
