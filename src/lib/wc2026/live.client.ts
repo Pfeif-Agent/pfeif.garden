@@ -280,32 +280,37 @@ function patchGroups(snap: LiveSnapshot, state: ReturnType<typeof deriveLiveStat
 
 // ---- 2b. Standings: per-team points, manager leaderboard --------------------
 
+const MEDAL = ["gold", "silver", "bronze"];
+
 function patchStandings(scores: ReturnType<typeof computeScores>): void {
   const note = document.querySelector<HTMLElement>("[data-standings-note]");
   const anyPoints = scores.managers.some((m) => m.points > 0);
   if (note) note.hidden = anyPoints;
 
-  // leaderboard (re-rank rows by points)
-  const lead = document.querySelector<HTMLElement>("[data-leaderboard]");
-  if (lead) {
-    scores.managers.forEach((m, rank) => {
-      const rowEl = lead.querySelector<HTMLElement>(`.lrow[data-mgr="${m.manager}"]`);
-      if (!rowEl) return;
-      lead.appendChild(rowEl); // reorder by current standing
-      rowEl.querySelector<HTMLElement>(".lrank")!.textContent = String(rank + 1);
-      rowEl.querySelector<HTMLElement>("[data-mgr-pts]")!.textContent = String(m.points);
-      const alive = m.teams.filter((t) => !t.eliminated).length;
-      const aliveEl = rowEl.querySelector<HTMLElement>("[data-alive]");
-      if (aliveEl) aliveEl.textContent = `${alive}/${m.teams.length} alive`;
-    });
-  }
-
-  // per-manager breakdown cards
-  for (const m of scores.managers) {
+  // scores.managers arrives sorted by current standing — re-rank the merged cards,
+  // apply medal tint by live rank, and update each card's header + roster rows.
+  const grid = document.querySelector<HTMLElement>("[data-leaderboard]");
+  scores.managers.forEach((m, rank) => {
     const card = document.querySelector<HTMLElement>(`[data-mgr-card="${m.manager}"]`);
-    if (!card) continue;
+    if (!card) return;
+    if (grid) grid.appendChild(card); // reorder by current standing
+
+    // rank + medal class (only once points actually diverge — pre-tournament stays neutral)
+    const rankEl = card.querySelector<HTMLElement>("[data-rank]");
+    if (rankEl) rankEl.textContent = String(rank + 1);
+    card.classList.remove("medal", "gold", "silver", "bronze");
+    if (anyPoints && rank < 3) card.classList.add("medal", MEDAL[rank]);
+
     card.querySelector<HTMLElement>("[data-mgr-pts]")!.textContent = String(m.points);
-    // reorder team rows by points
+
+    const alive = m.teams.filter((t) => !t.eliminated).length;
+    const aliveEl = card.querySelector<HTMLElement>("[data-alive]");
+    if (aliveEl) {
+      aliveEl.textContent = `${alive}/${m.teams.length} alive`;
+      aliveEl.classList.toggle("out", alive < m.teams.length);
+    }
+
+    // reorder roster rows by points
     const ol = card.querySelector("ol");
     for (const ts of m.teams) {
       const li = card.querySelector<HTMLElement>(`li[data-team-row="${cssEscape(ts.team)}"]`);
@@ -316,7 +321,7 @@ function patchStandings(scores: ReturnType<typeof computeScores>): void {
       if (stage) stage.textContent = ts.stage;
       li.classList.toggle("elim", ts.eliminated);
     }
-  }
+  });
 }
 
 // ---- eliminations everywhere ------------------------------------------------

@@ -4,7 +4,7 @@
 // Static markup is the source of truth; the client script only ADDS live data and degrades
 // gracefully if JS is off or ESPN is unreachable. Spec/algorithm: src/lib/wc2026/reference/.
 
-import { MANAGERS, TEAMS, SCORING, TEAM_BY_NAME } from "../../data/draft";
+import { MANAGERS, TEAMS, SCORING, TEAM_BY_NAME, flagUrl } from "../../data/draft";
 import { FIXTURES, FIXTURE_BY_NUM } from "../../lib/wc2026/fixtures";
 import { projectBracket, oddsRanking, GROUPS } from "../../lib/wc2026/bracket";
 
@@ -165,8 +165,11 @@ const scoringRows: [string, number][] = [
   --ground:#0B0E0D; --panel:#141816; --panel-2:#0F1311; --line:#272D29;
   --chalk:#F2F5EE; --sage:#97A59E; --sage-dim:#66716B; --gold:#F2C14E; --grass:#38D17A;
   /* schedule column track, shared by the label bar and every match row so columns
-     line up across day groups. tag | time | home | score | away */
-  --sched-cols:44px 56px 1fr 56px 1fr;
+     line up across day groups. when(stage/time stacked) | home | score | away
+     The two team tracks are minmax(0,1fr): equal + shrinkable, so home and away mirror
+     exactly and a long name (e.g. "Bosnia & Herzegovina") ellipsises instead of overflowing
+     (plain 1fr is minmax(auto,1fr), whose `auto` floor won't shrink below the name). */
+  --sched-cols:64px minmax(0,1fr) auto minmax(0,1fr);
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
@@ -280,6 +283,8 @@ html:not(.js) .panel-title{display:block; font-family:"JetBrains Mono",monospace
   font-family:"JetBrains Mono",monospace; font-size:12px; font-weight:700; letter-spacing:.08em;
   text-transform:uppercase; color:var(--sage-dim)}
 .sched-labels .c{text-align:center} .sched-labels .r{text-align:right}
+.sched-labels .when{display:flex; flex-direction:column; gap:2px; line-height:1.2}
+.sched-labels .when > span{display:block}
 
 .sched-day{margin-bottom:16px}
 .sched-day:first-of-type{scroll-margin-top:48px}
@@ -288,7 +293,7 @@ html:not(.js) .panel-title{display:block; font-family:"JetBrains Mono",monospace
 .sched-date::after{content:""; flex:1; height:1px; background:var(--line)}
 
 .match{position:relative; background:var(--panel); border:1px solid var(--line);
-  border-left:3px solid var(--line); border-radius:8px; padding:8px 12px; margin-bottom:8px}
+  border-left:3px solid var(--line); border-radius:8px; padding:10px 12px; margin-bottom:8px}
 /* five-state left accent bar, keyed off data-state (set statically + by the live script) */
 .match[data-state="live"]{border-left-color:var(--grass); background:linear-gradient(
   90deg,rgba(56,209,122,.06),transparent 40%),var(--panel)}
@@ -297,16 +302,28 @@ html:not(.js) .panel-title{display:block; font-family:"JetBrains Mono",monospace
 .match[data-state="tbd"]{border-style:dashed; border-left-style:solid;
   border-color:#2f352f; border-left-color:var(--sage-dim); background:var(--panel-2)}
 
-.match .mtag{font-family:"JetBrains Mono",monospace; font-size:12px; font-weight:700; letter-spacing:.04em;
-  color:var(--sage-dim); text-align:center}
+/* stage + time stacked into one narrow column (stage on top, time under, both smaller) */
+.match .when{display:flex; flex-direction:column; align-items:flex-start; gap:2px; line-height:1.2}
+.match .when > *{display:block}
+.match .mtag{font-family:"JetBrains Mono",monospace; font-size:11px; font-weight:700; letter-spacing:.04em;
+  color:var(--sage-dim); white-space:nowrap}
 .match[data-state="tbd"] .mtag{color:var(--gold)}
-.match .mt-time{font-family:"JetBrains Mono",monospace; font-size:12px; color:var(--sage)}
+.match .mt-time{font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--sage); white-space:nowrap}
 .match[data-state="today"] .mt-time{color:var(--gold)}
 .match[data-state="live"] .mt-time{color:var(--grass)}
+/* completed games: the start time matters less, so dim it — also helps scanning what's already played */
+.match[data-state="done"] .mt-time{color:var(--sage-dim)}
 
-.match .tcell{display:flex; align-items:center; gap:8px; min-width:0}
-.match .tcell.r{justify-self:end; justify-content:flex-end}
-.match .tcell .tn{font-size:16px; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+/* tcell is a GRID (not flex): the name lives in a minmax(0,1fr) track that is hard-bounded,
+   so it ellipsises reliably on either side. (A flex cell with justify-content:flex-end lets a
+   right-justified overflow escape the start edge past overflow:hidden — a real browser quirk
+   that left "Bosnia & Herzegovina" spilling into the score. Grid tracks don't do that.) */
+.match .tcell{display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center;
+  column-gap:8px; min-width:0; width:100%}
+.match .tcell.r{grid-template-columns:minmax(0,1fr) auto}
+.match .tcell .tn{font-size:16px; min-width:0;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.match .tcell.r .tn{text-align:right}
 .match[data-state="tbd"] .tcell .tn{color:var(--sage)}
 .match .tcell.win .tn{font-weight:700}
 
@@ -337,25 +354,46 @@ html:not(.js) .panel-title{display:block; font-family:"JetBrains Mono",monospace
 .mu-team.win .tn{color:var(--chalk)}
 .mu-team.win .adv{font-family:"JetBrains Mono",monospace; font-size:9px; color:var(--grass); flex:none}
 
-/* standings */
-.lead{display:grid; gap:10px; margin-bottom:22px}
-.lead .lrow{display:flex; align-items:center; gap:12px; background:var(--panel); border:1px solid var(--line);
-  border-left:4px solid var(--rc); border-radius:12px; padding:13px 16px}
-.lead .lrank{font-family:"JetBrains Mono",monospace; font-size:13px; color:var(--sage-dim); width:22px; flex:none}
-.lead .lname{font-weight:700; font-size:17px; flex:1}
-.lead .lalive{font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--sage-dim); flex:none}
-.lead .lpts{font-family:"JetBrains Mono",monospace; font-weight:700; font-size:20px; color:var(--gold); flex:none}
-.stand-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:14px}
-.stand-card{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px 14px 8px; border-top:3px solid var(--rc)}
-.stand-card .rh{display:flex; align-items:center; gap:9px; margin-bottom:10px}
-.stand-card .rh .sw{width:13px; height:13px; border-radius:4px; background:var(--rc)}
-.stand-card .rh .rn{font-weight:700; font-size:16px}
-.stand-card .rh .rc{margin-left:auto; font-family:"JetBrains Mono",monospace; font-size:12px; color:var(--gold)}
-.stand-card ol{list-style:none; margin:0; padding:0}
-.stand-card li{display:flex; align-items:center; gap:9px; padding:7px 2px; border-top:1px solid rgba(255,255,255,.04)}
+/* standings — one merged card per manager (header line + expandable roster) */
+.stand-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:8px}
+.stand-card{background:var(--panel); border:1px solid var(--line); border-top:3px solid var(--rc);
+  border-radius:14px; padding:0; overflow:hidden; --medal:transparent}
+/* medal tint (live-rank driven): gold/silver/bronze for 1st/2nd/3rd */
+.stand-card.medal{border-top-color:var(--medal);
+  background:linear-gradient(180deg, color-mix(in srgb, var(--medal) 12%, transparent), transparent 64px),var(--panel)}
+.stand-card.gold{--medal:#F2C14E} .stand-card.silver{--medal:#C9D1D3} .stand-card.bronze{--medal:#CD8C5C}
+
+.stand-card .sc-head{display:grid; grid-template-columns:auto 1fr auto; align-items:baseline;
+  gap:4px 10px; padding:13px 15px 12px}
+.stand-card .sc-rank{font-family:"JetBrains Mono",monospace; font-size:13px; font-weight:700; color:var(--sage-dim);
+  grid-row:1/span 2; align-self:center}
+.stand-card.medal .sc-rank{color:var(--medal)}
+.stand-card .sc-name{font-weight:700; font-size:17px}
+.stand-card .sc-pts{font-family:"JetBrains Mono",monospace; font-weight:700; font-size:22px; color:var(--gold);
+  grid-row:1/span 2; align-self:center; text-align:right}
+.stand-card .sc-alive{grid-column:2; font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--sage-dim)}
+.stand-card .sc-alive.out{color:var(--medal,#CD8C5C)}
+
+/* roster accordion */
+.stand-card .sc-roster{border-top:1px solid var(--line)}
+.stand-card .sc-roster summary{cursor:pointer; list-style:none; display:flex; align-items:center; gap:8px;
+  padding:10px 15px; font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--sage); user-select:none}
+.stand-card .sc-roster summary::-webkit-details-marker{display:none}
+.stand-card .sc-roster .sc-rcount{margin-left:auto; color:var(--sage-dim); letter-spacing:.04em}
+.stand-card .sc-roster summary::after{content:"▾"; color:var(--sage-dim); transition:transform .15s ease}
+.stand-card .sc-roster[open] summary::after{transform:rotate(180deg)}
+.stand-card ol{list-style:none; margin:0; padding:0 15px 6px}
+.stand-card li{display:flex; align-items:center; gap:10px; padding:8px 0; border-top:1px solid rgba(255,255,255,.04)}
 .stand-card li:first-child{border-top:0}
+.stand-card .flag{width:22px; height:22px; border-radius:50%; object-fit:cover; flex:none;
+  background:var(--panel-2); box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.stand-card .tn{font-size:15px; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1}
 .stand-card .sstage{font-family:"JetBrains Mono",monospace; font-size:10px; color:var(--sage-dim); flex:none}
-.stand-card .spts{font-family:"JetBrains Mono",monospace; font-size:12px; font-weight:700; color:var(--gold); width:24px; text-align:right; flex:none}
+.stand-card .spts{font-family:"JetBrains Mono",monospace; font-size:13px; font-weight:700; color:var(--gold);
+  width:24px; text-align:right; flex:none}
+.stand-card li.elim .tn{color:var(--sage-dim); text-decoration:line-through; text-decoration-color:var(--sage-dim)}
+.stand-card li.elim .flag{filter:grayscale(1) opacity(.5)}
 
 /* scoring */
 details.ladder{margin:26px 0 0; background:var(--panel-2); border:1px solid var(--line); border-radius:12px; padding:0 14px}
@@ -384,10 +422,10 @@ footer .live.offline::before{background:var(--sage-dim); box-shadow:none}
 }
 @media(max-width:430px){
   .groups{grid-template-columns:1fr} .mugrid{grid-template-columns:1fr}
-  /* phone schedule: drop time+tag columns to zero-width; fold time into the time-spot
-     via a smaller home column. tag | time | home | score | away -> tighter tracks */
-  :root{--sched-cols:32px 44px 1fr 44px 1fr}
-  .match .mtag{font-size:11px} .match .tcell .tn{font-size:15px}
+  /* phone schedule: tighten the stacked stage/time column; teams keep equal shrinkable tracks.
+     when(stage/time) | home | score | away */
+  :root{--sched-cols:46px minmax(0,1fr) auto minmax(0,1fr)}
+  .match .tcell .tn{font-size:15px}
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -430,7 +468,7 @@ footer .live.offline::before{background:var(--sage-dim); box-shadow:none}
           <span class="key"><span class="swp tbd" aria-hidden="true"></span>teams TBD (projected)</span>
         </p>
         <div class="sched-labels" aria-hidden="true">
-          <span>Stage</span><span>Time</span><span>Home</span><span class="c">Score</span><span class="r">Away</span>
+          <span class="when"><span>Stage</span><span>Time</span></span><span>Home</span><span class="c">Score</span><span class="r">Away</span>
         </div>
         {dayOrder.map((day) => (
           <div class="sched-day">
@@ -438,8 +476,10 @@ footer .live.offline::before{background:var(--sage-dim); box-shadow:none}
             {schedByDay.get(day)!.map((r) => (
               <div class="match" class:list={[{ pred: r.predicted }]} data-match={r.num}
                    data-stage={r.predicted ? "knockout" : "group"} data-state={r.predicted ? "tbd" : "future"}>
-                <span class="mtag">{r.tag}</span>
-                <span class="mt-time" data-kickoff={FIXTURE_BY_NUM[r.num].kickoffUTC}>{r.time}</span>
+                <span class="when">
+                  <span class="mtag">{r.tag}</span>
+                  <span class="mt-time" data-kickoff={FIXTURE_BY_NUM[r.num].kickoffUTC}>{r.time}</span>
+                </span>
                 <span class="tcell">
                   <span class="dot" style={`background:${r.t1.color}`} aria-hidden="true"></span>
                   <span class="tn" data-team={r.t1.name} data-slot={FIXTURE_BY_NUM[r.num].team1}>{r.t1.name}{r.t1.mgrName && <span class="visually-hidden"> (drafted by {r.t1.mgrName})</span>}</span>
@@ -459,30 +499,28 @@ footer .live.offline::before{background:var(--sage-dim); box-shadow:none}
       <section class="panel" id="p-standings" role="tabpanel" aria-labelledby="tab-standings" tabindex="0">
         <h2 class="panel-title">Standings</h2>
         <p class="brk-note" data-standings-note>Live standings appear here once the tournament starts. Points follow the B+2 ladder below.</p>
-        <div class="lead" data-leaderboard>
+        <div class="stand-grid" data-leaderboard>
           {rosters.map((r, i) => (
-            <div class="lrow" style={`--rc:${r.color}`} data-mgr={i}>
-              <span class="lrank">{i + 1}</span>
-              <span class="lname">{r.name}</span>
-              <span class="lalive" data-alive></span>
-              <span class="lpts" data-mgr-pts>0</span>
-            </div>
-          ))}
-        </div>
-        <div class="stand-grid">
-          {rosters.map((r, i) => (
-            <div class="stand-card" style={`--rc:${r.color}`} data-mgr-card={i}>
-              <div class="rh"><span class="sw" aria-hidden="true"></span><span class="rn">{r.name}</span><span class="rc" data-mgr-pts>0</span></div>
-              <ol>
-                {r.teams.map((t) => (
-                  <li data-team-row={t.name}>
-                    <span class="dot" style={`background:${r.color}`} aria-hidden="true"></span>
-                    <span class="tn" data-team={t.name}>{t.name}</span>
-                    <span class="sstage" data-stage-label></span>
-                    <span class="spts" data-team-pts>0</span>
-                  </li>
-                ))}
-              </ol>
+            <div class="stand-card" style={`--rc:${r.color}`} data-mgr-card={i} data-mgr={i}>
+              <div class="sc-head">
+                <span class="sc-rank" data-rank>{i + 1}</span>
+                <span class="sc-name">{r.name}</span>
+                <span class="sc-alive" data-alive>{r.teams.length}/{r.teams.length} alive</span>
+                <span class="sc-pts" data-mgr-pts>0</span>
+              </div>
+              <details class="sc-roster">
+                <summary><span class="sc-rlabel">Roster</span><span class="sc-rcount">{r.teams.length} teams</span></summary>
+                <ol>
+                  {r.teams.map((t) => (
+                    <li data-team-row={t.name}>
+                      <img class="flag" src={flagUrl(t.code) ?? ""} alt="" width="22" height="22" loading="lazy" aria-hidden="true" />
+                      <span class="tn" data-team={t.name}>{t.name}</span>
+                      <span class="sstage" data-stage-label></span>
+                      <span class="spts" data-team-pts>0</span>
+                    </li>
+                  ))}
+                </ol>
+              </details>
             </div>
           ))}
         </div>
