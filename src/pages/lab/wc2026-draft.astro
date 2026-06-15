@@ -7,6 +7,8 @@
 import { MANAGERS, TEAMS, SCORING, TEAM_BY_NAME, flagUrl } from "../../data/draft";
 import { FIXTURES, FIXTURE_BY_NUM } from "../../lib/wc2026/fixtures";
 import { projectBracket, oddsRanking, GROUPS } from "../../lib/wc2026/bracket";
+import StandingCard from "../../components/StandingCard.astro";
+import GroupCard from "../../components/GroupCard.astro";
 
 // ---- derived helpers ---------------------------------------------------------
 
@@ -253,17 +255,10 @@ html:not(.js) .panel-title{display:block; font-family:"JetBrains Mono",monospace
 .tn{font-weight:600; font-size:14px; flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .gp{font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--sage-dim); width:14px; text-align:right; flex:none}
 
-/* by-group */
+/* by-group grid container (the cards themselves live in GroupCard.astro).
+   .board .mn stays here — the draft board reuses the manager-name utility. */
 .groups{display:grid; grid-template-columns:repeat(3,1fr); gap:12px}
-.grp{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px}
-.grp .gh{font-family:"JetBrains Mono",monospace; font-size:11px; font-weight:700; letter-spacing:.14em;
-  text-transform:uppercase; color:var(--sage-dim); margin-bottom:8px}
-.grp ul{list-style:none; margin:0; padding:0}
-.grp li{display:flex; align-items:center; gap:8px; padding:5px 0}
-.grp .mn,.board .mn{font-family:"JetBrains Mono",monospace; font-size:10px; flex:none}
-.grp .stat{font-family:"JetBrains Mono",monospace; font-size:10px; color:var(--sage-dim); flex:none; margin-left:auto}
-.grp li.adv .tn{color:var(--chalk)} .grp li.adv-pos .pos{color:var(--grass)}
-.grp .pos{font-family:"JetBrains Mono",monospace; font-size:10px; color:var(--sage-dim); width:12px; flex:none}
+.board .mn{font-family:"JetBrains Mono",monospace; font-size:10px; flex:none}
 
 /* draft board */
 .board{list-style:none; margin:0; padding:0; columns:2; column-gap:14px}
@@ -287,12 +282,12 @@ html:not(.js) .panel-title{display:block; font-family:"JetBrains Mono",monospace
 .main-left{grid-area:sched; min-width:0}
 .main-standings{grid-area:stand; min-width:0}
 .main-groups{grid-area:groups; min-width:0; margin-top:18px}
-/* in the narrow right column the standings cards stack one-up, and groups go two-up.
-   Both scoped to the wide layout; below 880 the blocks linearize and inherit the
-   ordinary responsive .stand-grid / .groups rules. */
+/* in the narrow right column both standings and group cards stack one-up — two-up
+   group cards overflow the ~320px column. Scoped to the wide layout; below 880 the
+   blocks linearize and inherit the ordinary responsive .stand-grid / .groups rules. */
 @media(min-width:881px){
   .main-standings .stand-grid{grid-template-columns:1fr}
-  .groups--side{grid-template-columns:1fr 1fr}
+  .groups--side{grid-template-columns:1fr}
 }
 /* the right column's section headings shouldn't carry the no-JS top border/padding here */
 .main-standings > .panel-title,.main-groups > .panel-title{display:none}
@@ -396,46 +391,9 @@ html:not(.js) .panel-title{display:block; font-family:"JetBrains Mono",monospace
 .mu-team.win .tn{color:var(--chalk)}
 .mu-team.win .adv{font-family:"JetBrains Mono",monospace; font-size:9px; color:var(--grass); flex:none}
 
-/* standings — one merged card per manager (header line + expandable roster) */
+/* standings grid container (the cards themselves live in StandingCard.astro,
+   which co-locates their markup + :global() styles). */
 .stand-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:8px}
-.stand-card{background:var(--panel); border:1px solid var(--line); border-top:3px solid var(--rc);
-  border-radius:14px; padding:0; overflow:hidden; --medal:transparent}
-/* medal tint (live-rank driven): gold/silver/bronze for 1st/2nd/3rd */
-.stand-card.medal{border-top-color:var(--medal);
-  background:linear-gradient(180deg, color-mix(in srgb, var(--medal) 12%, transparent), transparent 64px),var(--panel)}
-.stand-card.gold{--medal:#F2C14E} .stand-card.silver{--medal:#C9D1D3} .stand-card.bronze{--medal:#CD8C5C}
-
-.stand-card .sc-head{display:grid; grid-template-columns:auto 1fr auto; align-items:baseline;
-  gap:4px 10px; padding:13px 15px 12px}
-.stand-card .sc-rank{font-family:"JetBrains Mono",monospace; font-size:13px; font-weight:700; color:var(--sage-dim);
-  grid-row:1/span 2; align-self:center}
-.stand-card.medal .sc-rank{color:var(--medal)}
-.stand-card .sc-name{font-weight:700; font-size:17px}
-.stand-card .sc-pts{font-family:"JetBrains Mono",monospace; font-weight:700; font-size:22px; color:var(--gold);
-  grid-row:1/span 2; align-self:center; text-align:right}
-.stand-card .sc-alive{grid-column:2; font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--sage-dim)}
-.stand-card .sc-alive.out{color:var(--medal,#CD8C5C)}
-
-/* roster accordion */
-.stand-card .sc-roster{border-top:1px solid var(--line)}
-.stand-card .sc-roster summary{cursor:pointer; list-style:none; display:flex; align-items:center; gap:8px;
-  padding:10px 15px; font-family:"JetBrains Mono",monospace; font-size:11px; letter-spacing:.1em;
-  text-transform:uppercase; color:var(--sage); user-select:none}
-.stand-card .sc-roster summary::-webkit-details-marker{display:none}
-.stand-card .sc-roster .sc-rcount{margin-left:auto; color:var(--sage-dim); letter-spacing:.04em}
-.stand-card .sc-roster summary::after{content:"▾"; color:var(--sage-dim); transition:transform .15s ease}
-.stand-card .sc-roster[open] summary::after{transform:rotate(180deg)}
-.stand-card ol{list-style:none; margin:0; padding:0 15px 6px}
-.stand-card li{display:flex; align-items:center; gap:10px; padding:8px 0; border-top:1px solid rgba(255,255,255,.04)}
-.stand-card li:first-child{border-top:0}
-.stand-card .flag{width:22px; height:22px; border-radius:50%; object-fit:cover; flex:none;
-  background:var(--panel-2); box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
-.stand-card .tn{font-size:15px; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1}
-.stand-card .sstage{font-family:"JetBrains Mono",monospace; font-size:10px; color:var(--sage-dim); flex:none}
-.stand-card .spts{font-family:"JetBrains Mono",monospace; font-size:13px; font-weight:700; color:var(--gold);
-  width:24px; text-align:right; flex:none}
-.stand-card li.elim .tn{color:var(--sage-dim); text-decoration:line-through; text-decoration-color:var(--sage-dim)}
-.stand-card li.elim .flag{filter:grayscale(1) opacity(.5)}
 
 /* scoring */
 details.ladder{margin:26px 0 0; background:var(--panel-2); border:1px solid var(--line); border-radius:12px; padding:0 14px}
@@ -457,7 +415,11 @@ footer .live::before{content:""; width:7px; height:7px; border-radius:50%; backg
 footer .live.offline::before{background:var(--sage-dim); box-shadow:none}
 
 @media(max-width:760px){
-  .rosters,.stand-grid{grid-template-columns:1fr}
+  /* standings go 2-up (3rd place wraps to its own row). Cards size to their own
+     content (align-items:start) so a closed card never stretches to match an open
+     neighbour, and an OPEN card spans the full width — pushing the others down. */
+  .stand-grid{grid-template-columns:1fr 1fr; align-items:start}
+  .stand-card[open]{grid-column:1 / -1}
   .groups{grid-template-columns:1fr 1fr}
   .board{columns:1}
   .mugrid{grid-template-columns:1fr 1fr}
@@ -544,27 +506,7 @@ footer .live.offline::before{background:var(--sage-dim); box-shadow:none}
         <p class="brk-note" data-standings-note>Live standings appear here once the tournament starts. Points follow the B+2 ladder below.</p>
         <div class="stand-grid" data-leaderboard>
           {rosters.map((r, i) => (
-            <div class="stand-card" style={`--rc:${r.color}`} data-mgr-card={i} data-mgr={i}>
-              <div class="sc-head">
-                <span class="sc-rank" data-rank>{i + 1}</span>
-                <span class="sc-name">{r.name}</span>
-                <span class="sc-alive" data-alive>{r.teams.length}/{r.teams.length} alive</span>
-                <span class="sc-pts" data-mgr-pts>0</span>
-              </div>
-              <details class="sc-roster">
-                <summary><span class="sc-rlabel">Roster</span><span class="sc-rcount">{r.teams.length} teams</span></summary>
-                <ol>
-                  {r.teams.map((t) => (
-                    <li data-team-row={t.name}>
-                      <img class="flag" src={flagUrl(t.code) ?? ""} alt="" width="22" height="22" loading="lazy" aria-hidden="true" />
-                      <span class="tn" data-team={t.name}>{t.name}</span>
-                      <span class="sstage" data-stage-label></span>
-                      <span class="spts" data-team-pts>0</span>
-                    </li>
-                  ))}
-                </ol>
-              </details>
-            </div>
+            <StandingCard name={r.name} color={r.color} index={i} teams={r.teams} flagUrl={flagUrl} />
           ))}
         </div>
 
@@ -575,21 +517,7 @@ footer .live.offline::before{background:var(--sage-dim); box-shadow:none}
         <h2 class="panel-title">By group</h2>
         <div class="groups groups--side">
           {groupCards.map((gc) => (
-            <div class="grp" data-group={gc.group}>
-              <h2 class="gh">Group {gc.group}</h2>
-              <ul>
-                {gc.teams.map((t, idx) => (
-                  <li data-team-row={t.name} data-pos={idx + 1}>
-                    <span class="pos" data-pos-label>{idx + 1}</span>
-                    <span class="dot" style={`background:${colorOf(t.manager)}`} aria-hidden="true"></span>
-                    <span class="tn" data-team={t.name}>{t.name}</span>
-                    <span class={`od ${oddsTier(t.oddsValue)}`}>{t.odds}</span>
-                    <span class="mn" style={`color:${colorOf(t.manager)}`}>{nameOf(t.manager)}</span>
-                    <span class="stat" data-group-stat hidden></span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <GroupCard group={gc.group} teams={gc.teams} colorOf={colorOf} nameOf={nameOf} oddsTier={oddsTier} />
           ))}
         </div>
         </div>{/* /.main-groups */}

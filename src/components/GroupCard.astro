@@ -1,0 +1,111 @@
+---
+/**
+ * GroupCard — one group's table (A–L) for the WC2026 draft page.
+ *
+ * Static order is by pre-tournament odds; the live layer reorders rows to the real
+ * standing, marks the top two as advancing, and reveals a W-D-L · pts chip.
+ *
+ * Live layer: live.client.ts (patchGroups) hooks this by bare class / data-attr —
+ * .grp[data-group], li[data-team-row], [data-pos-label], [data-group-stat], and the
+ * .adv / .adv-pos row classes. Those MUST stay intact, so the styles below use
+ * :global() — co-located here for editing, but un-scoped so the cascade and the
+ * live script's selectors still reach them. (Same pattern as StandingCard.astro.)
+ *
+ * Props:
+ *   group   — group letter ("A".."L"); also the data-group key
+ *   teams   — teams in odds order; each { name, manager, odds, oddsValue }
+ *   colorOf — manager index -> accent color (page helper, passed in)
+ *   nameOf  — manager index -> display name (page helper, passed in)
+ *   oddsTier — odds value -> "fav" | "mid" | "" tier class (page helper, passed in)
+ */
+interface GroupTeam {
+  name: string;
+  manager: number;
+  odds: string;
+  oddsValue: number;
+}
+interface Props {
+  group: string;
+  teams: GroupTeam[];
+  colorOf: (mgr: number) => string;
+  nameOf: (mgr: number) => string;
+  oddsTier: (oddsValue: number) => "fav" | "mid" | "";
+}
+
+const { group, teams, colorOf, nameOf, oddsTier } = Astro.props;
+---
+
+<div class="grp" data-group={group}>
+  <h2 class="gh">Group {group}</h2>
+  <ul>
+    {teams.map((t, idx) => (
+      <li data-team-row={t.name} data-pos={idx + 1}>
+        <span class="pos" data-pos-label>{idx + 1}</span>
+        <span class="dot" style={`background:${colorOf(t.manager)}`} aria-hidden="true"></span>
+        <span class="tn" data-team={t.name}>{t.name}</span>
+        <span class={`od ${oddsTier(t.oddsValue)}`}>{t.odds}</span>
+        <span class="mn" style={`color:${colorOf(t.manager)}`}>{nameOf(t.manager)}</span>
+        <span class="stat" data-group-stat hidden></span>
+      </li>
+    ))}
+  </ul>
+</div>
+
+<style>
+  /* ---- GroupCard ----
+     All selectors are :global() on purpose — they belong to the page's global
+     cascade (the live script reaches in by these names) and are merely co-located
+     here for editing. The .dot / .od / .od.fav / .od.mid bits are shared utilities
+     defined on the page; only the group-specific rules live here. */
+  :global(.grp) {
+    /* min-width:0 so the card respects its grid track. Without it the default
+       min-width:auto lets the non-shrinkable row content (odds + the margin-auto
+       stat chip) push the card wider than its column — it was overflowing the
+       right rail by ~37px, reading as "wider than the standings cards". */
+    min-width: 0;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px;
+  }
+  /* let the team name absorb the shrink so rows don't force the card wide */
+  :global(.grp .tn) {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  :global(.grp .gh) {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--sage-dim);
+    margin-bottom: 8px;
+  }
+  :global(.grp ul) { list-style: none; margin: 0; padding: 0; }
+  :global(.grp li) { display: flex; align-items: center; gap: 8px; padding: 5px 0; }
+  :global(.grp .pos) {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--sage-dim);
+    width: 12px;
+    flex: none;
+  }
+  :global(.grp .mn) {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    flex: none;
+  }
+  :global(.grp .stat) {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--sage-dim);
+    flex: none;
+    margin-left: auto;
+  }
+  /* live-driven row states */
+  :global(.grp li.adv .tn) { color: var(--chalk); }
+  :global(.grp li.adv-pos .pos) { color: var(--grass); }
+</style>
