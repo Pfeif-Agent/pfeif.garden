@@ -41,9 +41,27 @@ const etDateKey = (iso: string) => ddf.format(new Date(iso)); // "Thu, Jun 11" (
 
 // ---- bracket projection ------------------------------------------------------
 
-const projection = projectBracket(); // pre-tournament odds projection
-const winnerOfMatch = projection.winnerOfMatch;
+const projection = projectBracket(); // pre-tournament odds projection (used for the R32
+                                     // pairing structure + the best-thirds set, not winners)
 const resolveSlot = projection.resolveSlot;
+// The 8 best third-placed teams (cross-group) under the odds projection. The group
+// cards green the pos-number of every team currently projected to advance: top-2 of
+// each group (positional) PLUS any 3rd-placed team in this set. The live layer later
+// recomputes this from real standings (state.bracket.qualifyingThirds).
+const qualThirds = new Set(projection.qualifyingThirds);
+
+// We project the bracket STRUCTURE but not its RESULTS: a knockout slot shows a real team
+// only when the team is determined by group seeding or the best-thirds projection — i.e. the
+// R32 (slot codes 1A/2B/3A/B/C…). Anything fed by a match WINNER/LOSER (W74, L101 → R16 and
+// beyond) is a predicted result, so it renders "TBD" until the live layer fills it from real
+// games. (The live layer keys off the same data-slot attrs, so it still resolves teams in.)
+const isResultDependentSlot = (code: string): boolean => /^[WL]\d+$/.test(String(code));
+/** A placeholder "team view" for an unresolved (result-dependent) knockout slot. */
+const TBD_VIEW = { name: "TBD", mgr: null, color: "#66716B", mgrName: null } as const;
+/** teamView for a knockout slot, but TBD if the slot depends on a not-yet-played result. */
+function koSlotView(code: string) {
+  return isResultDependentSlot(code) ? TBD_VIEW : teamView(resolveSlot(code));
+}
 
 /** Round-tag abbreviations for the schedule/bracket. */
 const ROUND_TAG: Record<string, string> = {
@@ -78,8 +96,10 @@ for (const m of [...FIXTURES].sort((a, b) => a.kickoffUTC.localeCompare(b.kickof
   schedByDay.get(day)!.push({
     num: m.num,
     time: etTime(m.kickoffUTC),
-    t1: teamView(resolveSlot(m.team1)),
-    t2: teamView(resolveSlot(m.team2)),
+    // group fixtures have literal team names; knockout fixtures whose teams depend on a
+    // result render TBD (koSlotView handles both — real R32 pairings, TBD beyond).
+    t1: koSlotView(m.team1),
+    t2: koSlotView(m.team2),
     tag: m.group ? m.group : (ROUND_TAG[m.round] ?? m.round),
     predicted,
     group: m.group,
@@ -88,32 +108,55 @@ for (const m of [...FIXTURES].sort((a, b) => a.kickoffUTC.localeCompare(b.kickof
 
 // ---- Bracket: knockout matches grouped by round ------------------------------
 
+// Order is also the left→right column order in the bracket. The Final is the climax and
+// sits as the rightmost column. The 3rd-place match (fed by the SF losers, off the
+// championship path) is NOT a column — it's stacked under the Final inside that column.
 const KO_ROUNDS = [
   { round: "Round of 32", dt: "Jun 28 – Jul 3" },
   { round: "Round of 16", dt: "Jul 4–7" },
   { round: "Quarter-final", dt: "Jul 9–11" },
   { round: "Semi-final", dt: "Jul 14–15" },
-  { round: "Match for third place", dt: "Jul 18" },
   { round: "Final", dt: "Jul 19" },
 ];
 interface BrkMatch {
   num: number; t1: ReturnType<typeof teamView>; t2: ReturnType<typeof teamView>;
-  winner: string; // odds-projected advancer (visual only; 3rd-place still shows one)
+  // no projected winner — we don't predict knockout RESULTS, only the R32 pairing structure.
 }
+// The knockout draw is a binary tree rooted at the Final (#104); its feeder edges
+// (W74/W77 → #89, etc.) are NOT sequential, so a plain num-sort scrambles which
+// matches share a next-round slot. A DFS in-order traversal of that tree yields, per
+// round, the vertical sequence in which adjacent matches feed the same parent — the
+// ordering every real bracket layout needs so a winner lines up with the slot it fills.
+const feedersOf = (num: number): (number | null)[] => {
+  const m = FIXTURE_BY_NUM[num];
+  return [m.team1, m.team2].map((c) => {
+    const mm = /^[WL](\d+)$/.exec(String(c));
+    return mm ? Number(mm[1]) : null;
+  });
+};
+const ROUND_TREE_ORDER: Record<string, number[]> = (() => {
+  const order: Record<string, number[]> = {};
+  const visit = (num: number) => {
+    const m = FIXTURE_BY_NUM[num];
+    (order[m.round] ??= []);
+    const [f1, f2] = feedersOf(num);
+    if (f1) visit(f1);
+    order[m.round].push(num);
+    if (f2) visit(f2);
+  };
+  visit(104); // root = Final; the 3rd-place match (103) hangs off the SF losers, add it apart
+  order["Match for third place"] = [103];
+  return order;
+})();
+
 function bracketRound(round: string): BrkMatch[] {
+  const order = ROUND_TREE_ORDER[round] ?? [];
   return FIXTURES.filter((m) => m.stage === "knockout" && m.round === round)
-    .sort((a, b) => a.num - b.num)
-    .map((m) => {
-      const t1n = resolveSlot(m.team1);
-      const t2n = resolveSlot(m.team2);
-      // 3rd-place: scores 0, but the page still highlights an odds advancer.
-      const winner = round === "Match for third place"
-        ? (TEAM_BY_NAME[t1n]?.oddsValue ?? Infinity) <= (TEAM_BY_NAME[t2n]?.oddsValue ?? Infinity) ? t1n : t2n
-        : winnerOfMatch(m.num);
-      return { num: m.num, t1: teamView(t1n), t2: teamView(t2n), winner };
-    });
+    .sort((a, b) => order.indexOf(a.num) - order.indexOf(b.num))
+    // R32 shows real teams (group seeds + projected best-thirds); every later round depends on
+    // results we don't predict, so its slots render TBD. No winner is projected anywhere.
+    .map((m) => ({ num: m.num, t1: koSlotView(m.team1), t2: koSlotView(m.team2) }));
 }
-const championView = teamView(projection.champion);
 
 // ---- Rosters (per manager, draft order) --------------------------------------
 
@@ -199,7 +242,8 @@ body{
 .backnav__sep{color:var(--sage-dim)}
 main.wrap{padding-top:8px}
 .visually-hidden{position:absolute!important; width:1px; height:1px; margin:-1px; padding:0;
-  overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0}
+  overflow:hidden; clip:rect(0 0 0 0); clip-path:inset(50%); white-space:nowrap; border:0;
+  left:0; top:0}
 
 /* header */
 .eyebrow{font-family:"JetBrains Mono",monospace; font-size:11px; font-weight:700; letter-spacing:.22em;
@@ -265,38 +309,34 @@ html:not(.js) .panel-title{display:block; font-family:"JetBrains Mono",monospace
 .board li{display:flex; align-items:center; gap:9px; padding:8px 12px; margin-bottom:6px;
   background:var(--panel); border:1px solid var(--line); border-radius:9px; break-inside:avoid}
 
-/* ---- Main view: two-column dashboard (schedule | standings+groups) ----
-   Three atomic blocks placed by grid-area so they reorder cleanly per breakpoint:
-     wide  -> schedule fills the left column (it's tall) and spans both rows;
-              standings sits top-right, groups under it.
-     phone -> single column, standings first (the headline), then schedule, then groups.
+/* ---- Main view: two-column dashboard (schedule | standings) ----
+   Two atomic blocks placed by grid-area so they reorder cleanly per breakpoint:
+     wide  -> schedule fills the left column (it's tall); standings sits top-right.
+     phone -> single column, standings first (the headline), then schedule.
+   (Group standings live on the Bracket view now — keeping them off Main means nothing
+   important is buried below the long schedule on a phone.)
    Left track is pinned to --sched-max so the schedule keeps its scan-width cap and the
    right column takes whatever's left of the 980px page wrap. */
 .maingrid{display:grid; gap:0 24px;
   grid-template-columns:var(--sched-max) minmax(0,1fr);
   grid-template-areas:
     "sched stand"
-    "sched groups"
     "sched .";
   align-items:start}
 .main-left{grid-area:sched; min-width:0}
 .main-standings{grid-area:stand; min-width:0}
-.main-groups{grid-area:groups; min-width:0; margin-top:18px}
-/* in the narrow right column both standings and group cards stack one-up — two-up
-   group cards overflow the ~320px column. Scoped to the wide layout; below 880 the
-   blocks linearize and inherit the ordinary responsive .stand-grid / .groups rules. */
+/* in the narrow right column the standings cards stack one-up. Scoped to the wide
+   layout; below 880 the blocks linearize and inherit the responsive .stand-grid rules. */
 @media(min-width:881px){
   .main-standings .stand-grid{grid-template-columns:1fr}
-  .groups--side{grid-template-columns:1fr}
 }
-/* the right column's section headings shouldn't carry the no-JS top border/padding here */
-.main-standings > .panel-title,.main-groups > .panel-title{display:none}
+/* the right column's section heading shouldn't carry the no-JS top border/padding here */
+.main-standings > .panel-title{display:none}
 
 @media(max-width:880px){
-  /* not enough width for a useful right column: linearize to standings -> schedule -> groups */
+  /* not enough width for a useful right column: linearize to standings -> schedule */
   .maingrid{grid-template-columns:1fr;
-    grid-template-areas:"stand" "sched" "groups"}
-  .main-groups{margin-top:24px}
+    grid-template-areas:"stand" "sched"}
 }
 
 /* upcoming schedule */
@@ -369,24 +409,88 @@ html:not(.js) .panel-title{display:block; font-family:"JetBrains Mono",monospace
 .match .sc{font-family:"JetBrains Mono",monospace; font-size:16px; font-weight:700; color:var(--chalk)}
 
 /* bracket */
+/* group standings sit above the bracket on this view; the cake heading separates them */
+.groups--bracket{margin:0 0 26px}
+.brk-groups-head{margin-top:2px}
+.brk-cake-head{margin-top:30px}
 .brk-note{font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--sage-dim); margin:0 2px 14px; line-height:1.6}
-.champ{display:flex; align-items:center; gap:12px; border:1px solid var(--gold); border-radius:12px;
-  background:radial-gradient(120% 140% at 50% 0%, rgba(242,193,78,.14), transparent 60%),var(--panel);
-  padding:14px 18px; margin-bottom:20px}
-.champ .lab{font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--sage)}
-.champ .cn{font-family:Anton,sans-serif; font-weight:400; text-transform:uppercase; font-size:26px; letter-spacing:.01em}
-.champ .cdot{width:13px; height:13px; border-radius:4px}
 .brk-round{margin-bottom:18px}
 .brk-head{font-family:"JetBrains Mono",monospace; font-size:11px; font-weight:700; letter-spacing:.14em;
   text-transform:uppercase; color:var(--sage); display:flex; align-items:center; gap:8px; margin:0 2px 9px}
 .brk-head .dt{color:var(--sage-dim); font-weight:500; letter-spacing:.06em}
 .brk-head::after{content:""; flex:1; height:1px; background:var(--line)}
-.mugrid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px}
-.matchup{background:var(--panel-2); border:1px solid var(--line); border-radius:10px; padding:7px; border-style:dashed; border-color:#2f352f}
+
+/* ---- Bracket: classic left-to-right tree ----
+   Matches are emitted in DFS tree order (frontmatter ROUND_TREE_ORDER), so within any
+   round adjacent matches share a next-round slot. Each round is a full-height column that
+   space-arounds its matches over the same vertical extent: round K's match i then lands at
+   the midpoint of round K-1's matches 2i & 2i+1 — so a winner lines up with the slot it
+   feeds. Later rounds (QF→Final) are pulled LEFT by --brk-overlap so each tucks into the
+   empty tail of the previous column (feeder cards are vertically staggered, so nothing
+   collides) — tighter, no dead gaps, pyramid scan intact. Connector stubs read as the
+   bracket's lines. Wider than a phone: the panel pans horizontally (pinch-zooms on mobile). */
+:root{--mu:160px; --mu-gap:14px; --brk-overlap:48px; --brk-conn:#3a423b}
+.brk-tree{display:flex; gap:var(--mu-gap); align-items:stretch; overflow-x:auto; padding-bottom:10px}
+.brk-tree .brk-round{display:flex; flex-direction:column; margin:0; flex:none; position:relative}
+.brk-tree .mugrid{display:flex; flex-direction:column; justify-content:space-around; flex:1; gap:10px}
+/* round label sits atop each column, left-aligned, no trailing rule */
+.brk-tree .brk-head{flex-direction:column; align-items:flex-start; gap:2px; margin:0 0 10px; white-space:nowrap}
+.brk-tree .brk-head::after{display:none}
+/* overlap: pull QF, SF, Final into the previous column's tail. The heading rides along with
+   its column (no counter-shift) so each title stays directly above its own cards. */
+.brk-tree .brk-round[data-round="Quarter-final"],
+.brk-tree .brk-round[data-round="Semi-final"],
+.brk-tree .brk-round[data-round="Final"]{margin-left:calc(-1 * var(--brk-overlap))}
+
+/* matchup card — fixed width so columns stay tidy; connector stubs anchor to it. z-index so
+   an overlapped (later-round) card paints above the previous column's connector stubs. */
+.matchup{min-width:var(--mu); max-width:var(--mu); position:relative; z-index:1;
+  background:var(--panel-2); border:1px solid var(--line); border-radius:10px; padding:7px; border-style:dashed; border-color:#2f352f}
 .matchup.confirmed{border-style:solid; border-color:var(--line); background:var(--panel)}
+/* connector stubs: a stub OUT the right of R32/R16 matches (gap to next col is the full
+   --mu-gap there) and a stub IN the left of R16 matches. On overlapped rounds the columns
+   nearly touch, so a short fixed stub bridges the small remaining gap. */
+.brk-tree .brk-round[data-round="Round of 32"] .matchup::after,
+.brk-tree .brk-round[data-round="Round of 16"] .matchup::after{content:""; position:absolute;
+  top:50%; left:100%; width:calc(var(--mu-gap) / 2); height:1px; background:var(--brk-conn)}
+.brk-tree .brk-round[data-round="Round of 16"] .matchup::before{content:""; position:absolute;
+  top:50%; right:100%; width:calc(var(--mu-gap) / 2); height:1px; background:var(--brk-conn)}
+/* overlapped rounds: a short lead-in stub on the left of QF/SF/Final, reaching back toward
+   the feeder column they now sit atop. */
+.brk-tree .brk-round[data-round="Quarter-final"] .matchup::before,
+.brk-tree .brk-round[data-round="Semi-final"] .matchup::before,
+.brk-tree .brk-round[data-round="Final"] > .mugrid .matchup::before{content:""; position:absolute;
+  top:50%; right:100%; width:12px; height:1px; background:var(--brk-conn)}
+
+/* The Final card and the 3rd-place card float low in the rightmost column, far below the
+   top-row column titles, so each also gets a quiet inline label right above its card. The
+   top-row "FINAL" column heading STAYS (keeps the title row complete AND keeps the Final
+   column the same height as the others, so the Final card stays feeder-aligned to the SFs). */
+.brk-stage-head{font-family:"JetBrains Mono",monospace; font-size:10px; font-weight:700;
+  letter-spacing:.12em; text-transform:uppercase; color:var(--sage-dim);
+  display:flex; gap:8px; align-items:baseline; margin:0 0 7px; white-space:nowrap}
+.brk-stage-head .dt{font-weight:500; letter-spacing:.06em}
+/* Final label sits above the Final card WITHOUT shifting it (the card stays feeder-aligned
+   to its semifinals): position it absolutely just above the matchup. */
+.brk-tree .brk-round[data-round="Final"] .matchup-wrap{position:relative}
+.brk-tree .brk-round[data-round="Final"] .matchup-wrap .brk-stage-head{position:absolute;
+  bottom:100%; left:0; margin:0 0 6px}
+
+/* 3rd-place: stacked BELOW the Final inside the same column, not its own column. The Final's
+   .mugrid centers the Final card at the column's vertical midpoint (50%), so anchor the
+   3rd-place block absolutely at 50% and push it down past the Final card + a 32px gap. */
+.brk-tree .brk-round[data-round="Final"]{overflow:visible}
+.brk-third{position:absolute; left:0; width:var(--mu);
+  top:calc(50% + var(--mu-half, 37px) + 32px)}
+
 .mu-team{display:flex; align-items:center; gap:7px; padding:5px 6px; border-radius:7px}
 .mu-team .tn{font-size:13px; font-weight:600; color:var(--sage); flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .mu-team .sc{font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--sage-dim); flex:none}
+/* TBD slot (R16+ before its feeder is played): muted placeholder. The dot is already the
+   neutral grey from TBD_VIEW; dim the label so the empty card reads as not-yet-decided. */
+.mu-team.tbd .tn{color:var(--sage-dim); font-weight:500}
+.mu-team.tbd .dot{opacity:.45}
+/* live winner emphasis (added by the live layer once a real result comes in). */
 .mu-team.win{background:rgba(255,255,255,.04)}
 .mu-team.win .tn{color:var(--chalk)}
 .mu-team.win .adv{font-family:"JetBrains Mono",monospace; font-size:9px; color:var(--grass); flex:none}
@@ -422,10 +526,9 @@ footer .live.offline::before{background:var(--sage-dim); box-shadow:none}
   .stand-card[open]{grid-column:1 / -1}
   .groups{grid-template-columns:1fr 1fr}
   .board{columns:1}
-  .mugrid{grid-template-columns:1fr 1fr}
 }
 @media(max-width:430px){
-  .groups{grid-template-columns:1fr} .mugrid{grid-template-columns:1fr}
+  .groups{grid-template-columns:1fr}
   /* phone schedule: tighten the stacked stage/time column; teams keep equal shrinkable tracks.
      when(stage/time) | home | score | away */
   :root{--sched-cols:46px minmax(0,1fr) auto minmax(0,1fr)}
@@ -512,53 +615,66 @@ footer .live.offline::before{background:var(--sage-dim); box-shadow:none}
 
         </div>{/* /.main-standings */}
 
-        {/* RIGHT column, bottom: groups */}
-        <div class="main-groups">
-        <h2 class="panel-title">By group</h2>
-        <div class="groups groups--side">
-          {groupCards.map((gc) => (
-            <GroupCard group={gc.group} teams={gc.teams} colorOf={colorOf} nameOf={nameOf} oddsTier={oddsTier} />
-          ))}
-        </div>
-        </div>{/* /.main-groups */}
-
         </div>{/* /.maingrid */}
       </section>
 
       {/* ---- Bracket ---- */}
       <section class="panel" id="p-bracket" role="tabpanel" aria-labelledby="tab-bracket" tabindex="0">
         <h2 class="panel-title">Bracket</h2>
-        <p class="brk-note">Projected from pre-tournament odds. Every matchup is a prediction — dashed and dimmed — until results confirm it: group winners and runners-up lock as each group finishes, the best-third slots resolve once the group stage ends, and each knockout round locks as it's played.</p>
-        <div class="champ" data-champ>
-          <span class="cdot" style={`background:${championView.color}`} aria-hidden="true"></span>
-          <div>
-            <div class="lab" data-champ-label>Projected champion</div>
-            <div class="cn" data-champ-name>{championView.name}</div>
-          </div>
+
+        {/* group standings first — who's qualifying — then the knockout bracket below */}
+        <h2 class="brk-head brk-groups-head">Group standings<span class="dt">green = projected to advance</span></h2>
+        <div class="groups groups--bracket">
+          {groupCards.map((gc) => (
+            <GroupCard group={gc.group} teams={gc.teams} colorOf={colorOf} qualThirds={qualThirds} />
+          ))}
         </div>
+
+        <h2 class="brk-head brk-cake-head">Knockout bracket</h2>
+        <p class="brk-note">The Round of 32 pairings are projected from group seeding and the eight best third-placed teams (greened above). We don't predict who wins — every later round stays TBD and fills in from live results as the knockout is played.</p>
+        <div class="brk-tree brk-horiz">
         {KO_ROUNDS.map(({ round, dt }) => (
           <div class="brk-round" data-round={round}>
             <h2 class="brk-head">{round}<span class="dt">{dt}</span></h2>
             <div class="mugrid">
               {bracketRound(round).map((mu) => (
-                <div class="matchup" data-match={mu.num}>
+                <div class="matchup-wrap">
+                  {round === "Final" && <h3 class="brk-stage-head">Final</h3>}
+                  <div class="matchup" data-match={mu.num}>
                   {[mu.t1, mu.t2].map((tm, idx) => {
                     const slotCode = idx === 0 ? FIXTURE_BY_NUM[mu.num].team1 : FIXTURE_BY_NUM[mu.num].team2;
-                    const isWin = tm.name === mu.winner;
                     return (
-                      <div class="mu-team" class:list={[{ win: isWin }]} data-team={tm.name} data-slot={slotCode}>
+                      <div class="mu-team" class:list={[{ tbd: tm.name === "TBD" }]} data-team={tm.name} data-slot={slotCode}>
                         <span class="dot" style={`background:${tm.color}`} aria-hidden="true"></span>
                         <span class="tn">{tm.name}{tm.mgrName && <span class="visually-hidden"> (drafted by {tm.mgrName})</span>}</span>
                         <span class="sc" data-score hidden></span>
-                        {isWin && <span class="adv" aria-label="projected to advance">▸</span>}
+                      </div>
+                    );
+                  })}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {round === "Final" && bracketRound("Match for third place").map((mu) => (
+              <div class="brk-third" data-round="Match for third place">
+                <h3 class="brk-stage-head">Third place</h3>
+                <div class="matchup" data-match={mu.num}>
+                  {[mu.t1, mu.t2].map((tm, idx) => {
+                    const slotCode = idx === 0 ? FIXTURE_BY_NUM[mu.num].team1 : FIXTURE_BY_NUM[mu.num].team2;
+                    return (
+                      <div class="mu-team" class:list={[{ tbd: tm.name === "TBD" }]} data-team={tm.name} data-slot={slotCode}>
+                        <span class="dot" style={`background:${tm.color}`} aria-hidden="true"></span>
+                        <span class="tn">{tm.name}{tm.mgrName && <span class="visually-hidden"> (drafted by {tm.mgrName})</span>}</span>
+                        <span class="sc" data-score hidden></span>
                       </div>
                     );
                   })}
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
         ))}
+        </div>{/* /.brk-tree */}
       </section>
 
       {/* ---- Draft board ---- */}

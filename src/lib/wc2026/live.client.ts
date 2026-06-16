@@ -103,14 +103,18 @@ function patchUpcoming(snap: LiveSnapshot, state: ReturnType<typeof deriveLiveSt
     if (!fx) return;
     const res = snap.results[num];
 
-    // resolve knockout teams from the live bracket as they're determined.
+    // resolve knockout teams from the live bracket as they're determined. The R32 pairing
+    // shows its projected teams (group seeds + best-thirds); later rounds depend on results
+    // we don't predict, so they stay "TBD" until their feeder is actually decided.
     let confirmed = true;
     if (fx.stage === "knockout") {
       const t1 = state.bracket.resolveSlot(fx.team1);
       const t2 = state.bracket.resolveSlot(fx.team2);
       confirmed = state.confirmedSlots.has(t1) && state.confirmedSlots.has(t2);
-      setTeamCell(row.querySelectorAll<HTMLElement>(".tcell")[0], t1);
-      setTeamCell(row.querySelectorAll<HTMLElement>(".tcell")[1], t2);
+      const show = (team: string) =>
+        fx.round !== "Round of 32" && !state.confirmedSlots.has(team) ? "TBD" : team;
+      setTeamCell(row.querySelectorAll<HTMLElement>(".tcell")[0], show(t1));
+      setTeamCell(row.querySelectorAll<HTMLElement>(".tcell")[1], show(t2));
       row.classList.toggle("pred", !confirmed);
     }
 
@@ -182,16 +186,22 @@ function patchBracket(snap: LiveSnapshot, state: ReturnType<typeof deriveLiveSta
     if (!fx) continue;
     const t1 = state.bracket.resolveSlot(fx.team1);
     const t2 = state.bracket.resolveSlot(fx.team2);
-    const teams = [t1, t2];
+    // We don't predict knockout RESULTS: a slot shows a real team only once it's actually
+    // decided — group seeds/best-thirds for the R32, or a confirmed feeder for later rounds —
+    // otherwise "TBD". (confirmedSlots holds exactly the teams whose KO slot is locked in.)
+    const koConfirmed = (team: string) =>
+      fx.stage === "knockout" && fx.round !== "Round of 32" && !state.confirmedSlots.has(team)
+        ? "TBD" : team;
+    const teams = [koConfirmed(t1), koConfirmed(t2)];
     const res = snap.results[num];
-    const winner = fx.round === "Match for third place"
-      ? null
-      : (res?.completed ? res.winner : state.bracket.winnerOfMatch(num));
+    // winner emphasis only from a real completed result — never a projection.
+    const winner = res?.completed ? res.winner : null;
 
     const rows = mu.querySelectorAll<HTMLElement>(".mu-team");
     rows.forEach((r, i) => {
       const team = teams[i];
-      setMuTeam(r, team, winner === team);
+      setMuTeam(r, team, winner != null && winner === team);
+      r.classList.toggle("tbd", team === "TBD");
       // live score on knockout cells
       let sc = r.querySelector<HTMLElement>(".sc");
       const s = i === 0 ? res?.score1 : res?.score2;
@@ -205,19 +215,7 @@ function patchBracket(snap: LiveSnapshot, state: ReturnType<typeof deriveLiveSta
       (state.confirmedSlots.has(t1) && state.confirmedSlots.has(t2) && fx.round === "Round of 32" && useRealKO);
     mu.classList.toggle("confirmed", confirmed);
   }
-
-  // champion callout
-  const champ = document.querySelector<HTMLElement>("[data-champ]");
-  if (champ) {
-    const finalRes = snap.results[104];
-    const champName = finalRes?.completed && finalRes.winner ? finalRes.winner : state.bracket.champion;
-    const label = champ.querySelector<HTMLElement>("[data-champ-label]");
-    const name = champ.querySelector<HTMLElement>("[data-champ-name]");
-    const cdot = champ.querySelector<HTMLElement>(".cdot");
-    if (label) label.textContent = finalRes?.completed ? "Champion" : "Projected champion";
-    if (name) name.textContent = champName;
-    if (cdot) cdot.style.background = colorFor(champName);
-  }
+  // No champion callout: we don't project a winner. The Final fills in from real results.
 }
 
 function setMuTeam(row: HTMLElement, team: string, isWin: boolean): void {
@@ -250,6 +248,10 @@ function setMuTeam(row: HTMLElement, team: string, isWin: boolean): void {
 // ---- 2c. Group tables: live W/D/L/GD/Pts, advance/eliminated picture --------
 
 function patchGroups(snap: LiveSnapshot, state: ReturnType<typeof deriveLiveState>): void {
+  // currently-projected best-8 thirds (cross-group, live-ranked) — greens their pos-number
+  // just like top-2, since they're currently projected to advance. Not gated on the group
+  // stage being complete: state.bracket re-ranks the thirds live every snapshot.
+  const projThirds = new Set(state.bracket.qualifyingThirds);
   for (const card of document.querySelectorAll<HTMLElement>(".grp[data-group]")) {
     const g = card.dataset.group!;
     const table = snap.groupTables[g];
@@ -266,7 +268,8 @@ function patchGroups(snap: LiveSnapshot, state: ReturnType<typeof deriveLiveStat
       const posEl = li.querySelector<HTMLElement>("[data-pos-label]");
       if (posEl) posEl.textContent = String(idx + 1);
       li.classList.toggle("adv", state.advanced.has(team));
-      li.classList.toggle("adv-pos", idx < 2);
+      // green pos-number: top-2 (positional) or a 3rd currently inside the best-8 cutoff.
+      li.classList.toggle("adv-pos", idx < 2 || projThirds.has(team));
       // stats chip
       const row = table?.find((r) => r.team === team);
       const stat = li.querySelector<HTMLElement>("[data-group-stat]");

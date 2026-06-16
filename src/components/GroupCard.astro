@@ -12,39 +12,36 @@
  * live script's selectors still reach them. (Same pattern as StandingCard.astro.)
  *
  * Props:
- *   group   — group letter ("A".."L"); also the data-group key
- *   teams   — teams in odds order; each { name, manager, odds, oddsValue }
- *   colorOf — manager index -> accent color (page helper, passed in)
- *   nameOf  — manager index -> display name (page helper, passed in)
- *   oddsTier — odds value -> "fav" | "mid" | "" tier class (page helper, passed in)
+ *   group      — group letter ("A".."L"); also the data-group key
+ *   teams      — teams in odds order; each { name, manager }
+ *   colorOf    — manager index -> accent color (page helper, passed in) for the owner dot
+ *   qualThirds — set of team names currently projected as best-8 thirds (cross-group).
+ *                A 3rd-place row in this set gets the green pos-number (currently projected
+ *                to advance), same signifier as top-2. Top-2 green is purely positional.
  */
 interface GroupTeam {
   name: string;
   manager: number;
-  odds: string;
-  oddsValue: number;
 }
 interface Props {
   group: string;
   teams: GroupTeam[];
   colorOf: (mgr: number) => string;
-  nameOf: (mgr: number) => string;
-  oddsTier: (oddsValue: number) => "fav" | "mid" | "";
+  qualThirds: Set<string>;
 }
 
-const { group, teams, colorOf, nameOf, oddsTier } = Astro.props;
+const { group, teams, colorOf, qualThirds } = Astro.props;
 ---
 
 <div class="grp" data-group={group}>
   <h2 class="gh">Group {group}</h2>
   <ul>
     {teams.map((t, idx) => (
-      <li data-team-row={t.name} data-pos={idx + 1}>
+      <li data-team-row={t.name} data-pos={idx + 1}
+          class:list={[{ "adv-pos": idx < 2 || qualThirds.has(t.name) }]}>
         <span class="pos" data-pos-label>{idx + 1}</span>
         <span class="dot" style={`background:${colorOf(t.manager)}`} aria-hidden="true"></span>
         <span class="tn" data-team={t.name}>{t.name}</span>
-        <span class={`od ${oddsTier(t.oddsValue)}`}>{t.odds}</span>
-        <span class="mn" style={`color:${colorOf(t.manager)}`}>{nameOf(t.manager)}</span>
         <span class="stat" data-group-stat hidden></span>
       </li>
     ))}
@@ -55,8 +52,8 @@ const { group, teams, colorOf, nameOf, oddsTier } = Astro.props;
   /* ---- GroupCard ----
      All selectors are :global() on purpose — they belong to the page's global
      cascade (the live script reaches in by these names) and are merely co-located
-     here for editing. The .dot / .od / .od.fav / .od.mid bits are shared utilities
-     defined on the page; only the group-specific rules live here. */
+     here for editing. The .dot bit is a shared utility defined on the page; only
+     the group-specific rules live here. */
   :global(.grp) {
     /* min-width:0 so the card respects its grid track. Without it the default
        min-width:auto lets the non-shrinkable row content (odds + the margin-auto
@@ -68,12 +65,11 @@ const { group, teams, colorOf, nameOf, oddsTier } = Astro.props;
     border-radius: 12px;
     padding: 12px;
   }
-  /* let the team name absorb the shrink so rows don't force the card wide */
+  /* the name is the most important column — with odds + manager dropped there's room,
+     so let it show in full (wrap if a long name needs it) instead of truncating. */
   :global(.grp .tn) {
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    flex: 1;
   }
   :global(.grp .gh) {
     font-family: "JetBrains Mono", monospace;
@@ -91,11 +87,6 @@ const { group, teams, colorOf, nameOf, oddsTier } = Astro.props;
     font-size: 10px;
     color: var(--sage-dim);
     width: 12px;
-    flex: none;
-  }
-  :global(.grp .mn) {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 10px;
     flex: none;
   }
   :global(.grp .stat) {
