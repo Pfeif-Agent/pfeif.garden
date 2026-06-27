@@ -208,6 +208,9 @@ const scoringRows: [string, number][] = [
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>World Cup 2026 Draft · The Thread</title>
+{/* Page-specific favicon (FIFA 26 mark) — overrides the site default for this page only. */}
+<link rel="icon" type="image/png" href="/wc2026-favicon.png">
+<link rel="apple-touch-icon" href="/wc2026-favicon.png">
 <meta name="description" content="The Thread fantasy World Cup 2026 — three managers, a 48-team snake draft, scored by how far each team goes.">
 <meta property="og:title" content="World Cup 2026 Draft · The Thread">
 <meta property="og:description" content="Three managers, a 48-team snake draft, scored by how far each team goes.">
@@ -513,6 +516,11 @@ html:not(.js) .jump-today{display:none}
    neutral grey from TBD_VIEW; dim the label so the empty card reads as not-yet-decided. */
 .mu-team.tbd .tn{color:var(--sage-dim); font-weight:500}
 .mu-team.tbd .dot{opacity:.45}
+/* projected slot: a real team is shown (e.g. an R32 seed) but its place isn't SECURED yet —
+   it's only where the standings currently project it. Dim the whole row to 50% so it reads
+   as provisional; the live layer drops .projected once the slot is a locked fact, and the
+   row goes solid. Scoped to .mu-team so it only affects the bracket, never other views. */
+.mu-team.projected{opacity:.5}
 /* live winner emphasis (added by the live layer once a real result comes in). */
 .mu-team.win{background:rgba(255,255,255,.04)}
 .mu-team.win .tn{color:var(--chalk)}
@@ -659,7 +667,7 @@ footer .live.offline::before{background:var(--sage-dim); box-shadow:none}
         </div>
 
         <h2 class="brk-head brk-cake-head">Knockout bracket</h2>
-        <p class="brk-note">The Round of 32 pairings are projected from group seeding and the eight best third-placed teams (greened above). We don't predict who wins — every later round stays TBD and fills in from live results as the knockout is played.</p>
+        <p class="brk-note">Round-of-32 seeds shown at half-opacity are where the standings currently project a team — they go solid once a team has secured its place. We don't predict who wins: every later round stays TBD and fills in from real results as the knockout is played.</p>
         <div class="brk-tree brk-horiz">
         {KO_ROUNDS.map(({ round, dt }) => (
           <div class="brk-round" data-round={round}>
@@ -672,7 +680,7 @@ footer .live.offline::before{background:var(--sage-dim); box-shadow:none}
                   {[mu.t1, mu.t2].map((tm, idx) => {
                     const slotCode = idx === 0 ? FIXTURE_BY_NUM[mu.num].team1 : FIXTURE_BY_NUM[mu.num].team2;
                     return (
-                      <div class="mu-team" class:list={[{ tbd: tm.name === "TBD" }]} data-team={tm.name} data-slot={slotCode}>
+                      <div class="mu-team" class:list={[{ tbd: tm.name === "TBD", projected: tm.name !== "TBD" }]} data-team={tm.name} data-slot={slotCode}>
                         <span class="dot" style={`background:${tm.color}`} aria-hidden="true"></span>
                         <span class="tn">{tm.name}{tm.mgrName && <span class="visually-hidden"> (drafted by {tm.mgrName})</span>}</span>
                         <span class="sc" data-score hidden></span>
@@ -690,7 +698,7 @@ footer .live.offline::before{background:var(--sage-dim); box-shadow:none}
                   {[mu.t1, mu.t2].map((tm, idx) => {
                     const slotCode = idx === 0 ? FIXTURE_BY_NUM[mu.num].team1 : FIXTURE_BY_NUM[mu.num].team2;
                     return (
-                      <div class="mu-team" class:list={[{ tbd: tm.name === "TBD" }]} data-team={tm.name} data-slot={slotCode}>
+                      <div class="mu-team" class:list={[{ tbd: tm.name === "TBD", projected: tm.name !== "TBD" }]} data-team={tm.name} data-slot={slotCode}>
                         <span class="dot" style={`background:${tm.color}`} aria-hidden="true"></span>
                         <span class="tn">{tm.name}{tm.mgrName && <span class="visually-hidden"> (drafted by {tm.mgrName})</span>}</span>
                         <span class="sc" data-score hidden></span>

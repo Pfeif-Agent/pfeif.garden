@@ -15,6 +15,12 @@ export function canon(name: string): string {
   return ALIASES[name] ?? name;
 }
 
+// ESPN labels an unresolved knockout slot with a descriptive placeholder rather than a team,
+// e.g. "Group L Winner", "Group J 2nd Place", "Third Place Group E/H/I/J/K", "Round of 32 3
+// Winner". Treat any such label as "no real team yet" so we never mistake it for a country.
+const PLACEHOLDER_RE = /\b(winner|loser|place|group|round of|runner|tbd|qualifier)\b/i;
+const isRealTeam = (name: string): boolean => !!name && !PLACEHOLDER_RE.test(name);
+
 export interface LiveSnapshot {
   results: Record<number, LiveResult>;
   groupTables: Record<string, GroupRow[]>;
@@ -34,6 +40,20 @@ const pairKey = (a: string, b: string): Key => [norm(a), norm(b)].sort().join("|
 const GROUP_BY_PAIR = new Map<Key, number>();
 for (const m of FIXTURES) {
   if (m.stage === "group") GROUP_BY_PAIR.set(pairKey(m.team1, m.team2), m.num);
+}
+
+// Knockout games can't match by team-pair: our fixtures store SLOT CODES ("2A", "W91"), and
+// ESPN's own teams stay placeholder strings ("Group L Winner", "Third Place Group E/H/I/J/K")
+// until the feeders resolve. But every knockout has a unique, fixed kickoff instant that aligns
+// 1:1 with ESPN's event date — so match KO events by kickoff time. (Normalized through
+// Date.parse so any format/zone drift between the two sources still compares equal.)
+const kickoffKey = (iso: string): number => Date.parse(iso);
+const KO_BY_KICKOFF = new Map<number, number>();
+for (const m of FIXTURES) {
+  if (m.stage === "knockout") {
+    const k = kickoffKey(m.kickoffUTC);
+    if (!Number.isNaN(k)) KO_BY_KICKOFF.set(k, m.num);
+  }
 }
 
 // ---- low-level fetch with timeout -------------------------------------------
@@ -70,17 +90,38 @@ function parseScoreboard(json: any, results: Record<number, LiveResult>): void {
     const homeName = canon(home?.team?.displayName ?? "");
     const awayName = canon(away?.team?.displayName ?? "");
 
-    // find our fixture num (group games by unordered pair).
-    const num = GROUP_BY_PAIR.get(pairKey(homeName, awayName));
-    if (num == null) continue; // knockouts handled via standings/bracket once published
+    // Match to our fixture: group games by unordered team pair; knockouts (where our
+    // team1/team2 are slot codes, not names) by exact kickoff instant. The pair lookup
+    // naturally returns undefined for knockouts, so we fall through to the kickoff key.
+    const num =
+      GROUP_BY_PAIR.get(pairKey(homeName, awayName)) ??
+      KO_BY_KICKOFF.get(kickoffKey(ev?.date ?? ""));
+    if (num == null) continue;
 
-    // fixtures.json stores team1/team2; align ESPN home/away to that order.
     const fx = FIXTURES.find((m) => m.num === num)!;
-    const homeIsT1 = norm(homeName) === norm(fx.team1);
     const hs = home.score != null ? Number(home.score) : null;
     const as = away.score != null ? Number(away.score) : null;
-    const score1 = homeIsT1 ? hs : as;
-    const score2 = homeIsT1 ? as : hs;
+
+    // group games: align scores to fixtures' team1/team2 (real names). knockouts: fixtures
+    // order is slot codes, so leave score1/score2 null and expose goals by NAME instead —
+    // the bracket places them once it knows which team filled each slot.
+    const isGroup = fx.stage === "group";
+    const homeIsT1 = norm(homeName) === norm(fx.team1);
+    const score1 = isGroup ? (homeIsT1 ? hs : as) : null;
+    const score2 = isGroup ? (homeIsT1 ? as : hs) : null;
+    const byTeam: Record<string, number> = {};
+    if (isRealTeam(homeName) && hs != null) byTeam[homeName] = hs;
+    if (isRealTeam(awayName) && as != null) byTeam[awayName] = as;
+
+    // Real participant teams aligned to our team1/team2 order. ESPN's home/away maps to our
+    // team1/team2 slot order (verified across the R32). Each side is null while ESPN still
+    // shows a placeholder, so the bracket can prefer real pairings and fall back to projection.
+    const t1Name = isGroup ? (homeIsT1 ? homeName : awayName) : homeName;
+    const t2Name = isGroup ? (homeIsT1 ? awayName : homeName) : awayName;
+    const teams: [string | null, string | null] = [
+      isRealTeam(t1Name) ? t1Name : null,
+      isRealTeam(t2Name) ? t2Name : null,
+    ];
 
     let winner: string | null = null;
     if (completed) {
@@ -88,11 +129,14 @@ function parseScoreboard(json: any, results: Record<number, LiveResult>): void {
       else if (away.winner) winner = awayName;
       else if (hs != null && as != null && hs !== as) winner = hs > as ? homeName : awayName;
       // equal score & completed => draw => winner stays null
+      if (winner && !isRealTeam(winner)) winner = null; // never a placeholder
     }
 
     results[num] = {
       num, state, completed,
       score1: score1 ?? null, score2: score2 ?? null,
+      byTeam: Object.keys(byTeam).length ? byTeam : undefined,
+      teams: (teams[0] || teams[1]) ? teams : undefined,
       winner,
     };
   }

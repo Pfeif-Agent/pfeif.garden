@@ -107,14 +107,25 @@ function patchUpcoming(snap: LiveSnapshot, state: ReturnType<typeof deriveLiveSt
     // shows its projected teams (group seeds + best-thirds); later rounds depend on results
     // we don't predict, so they stay "TBD" until their feeder is actually decided.
     let confirmed = true;
+    let koT1 = "", koT2 = "";
     if (fx.stage === "knockout") {
-      const t1 = state.bracket.resolveSlot(fx.team1);
-      const t2 = state.bracket.resolveSlot(fx.team2);
-      confirmed = state.confirmedSlots.has(t1) && state.confirmedSlots.has(t2);
-      const show = (team: string) =>
-        fx.round !== "Round of 32" && !state.confirmedSlots.has(team) ? "TBD" : team;
-      setTeamCell(row.querySelectorAll<HTMLElement>(".tcell")[0], show(t1));
-      setTeamCell(row.querySelectorAll<HTMLElement>(".tcell")[1], show(t2));
+      koT1 = state.bracket.resolveSlot(fx.team1);
+      koT2 = state.bracket.resolveSlot(fx.team2);
+      // Prefer ESPN's real participant; else for a W/L-fed slot, the team only once that feeder
+      // has been PLAYED (else "TBD"); else (R32 seed not yet set by ESPN) the projected seed.
+      // Same priority as the bracket — keeps the schedule and bracket telling one story.
+      const show = (slotCode: string, projected: string, idx: 0 | 1): string => {
+        const espnTeam = snap.results[num]?.teams?.[idx];
+        if (espnTeam) return espnTeam;
+        const wl = /^[WL](\d+)$/.exec(String(slotCode));
+        if (wl) return snap.results[Number(wl[1])]?.completed ? projected : "TBD";
+        return projected;
+      };
+      koT1 = show(fx.team1, koT1, 0);
+      koT2 = show(fx.team2, koT2, 1);
+      confirmed = koT1 !== "TBD" && koT2 !== "TBD";
+      setTeamCell(row.querySelectorAll<HTMLElement>(".tcell")[0], koT1);
+      setTeamCell(row.querySelectorAll<HTMLElement>(".tcell")[1], koT2);
       row.classList.toggle("pred", !confirmed);
     }
 
@@ -131,17 +142,21 @@ function patchUpcoming(snap: LiveSnapshot, state: ReturnType<typeof deriveLiveSt
     row.dataset.state = stateName;
 
     // status + score, written into the persistent .sc-slot (replaces the old "v").
+    // group games carry score1/score2 (fixtures order); knockouts carry goals by team NAME,
+    // so align them to this row's resolved team1/team2 (koT1/koT2).
+    const sc1 = fx.stage === "knockout" ? res?.byTeam?.[koT1] ?? null : res?.score1 ?? null;
+    const sc2 = fx.stage === "knockout" ? res?.byTeam?.[koT2] ?? null : res?.score2 ?? null;
     const slot = row.querySelector<HTMLElement>(".sc-slot");
-    if (slot && res && res.state !== "pre" && res.score1 != null && res.score2 != null) {
+    if (slot && res && res.state !== "pre" && sc1 != null && sc2 != null) {
       let scoreEl = slot.querySelector<HTMLElement>(".sc");
       if (!scoreEl) {
         scoreEl = document.createElement("span");
         scoreEl.className = "sc";
         slot.replaceChildren(scoreEl); // drops the "–" placeholder
       }
-      scoreEl.textContent = `${res.score1}–${res.score2}`;
+      scoreEl.textContent = `${sc1}–${sc2}`;
       const status = res.completed ? ", final" : res.state === "in" ? ", in progress" : "";
-      scoreEl.setAttribute("aria-label", `${res.score1} to ${res.score2}${status}`);
+      scoreEl.setAttribute("aria-label", `${sc1} to ${sc2}${status}`);
     }
 
     // winner emphasis on completed matches (mirrors the bracket's .adv treatment).
@@ -179,40 +194,57 @@ function setTeamCell(cell: HTMLElement | undefined, team: string): void {
 // ---- 2e. Bracket: confirmed vs predicted, live advancers, champion ----------
 
 function patchBracket(snap: LiveSnapshot, state: ReturnType<typeof deriveLiveState>): void {
-  const useRealKO = state.groupStageComplete; // after groups, ESPN owns the R32 (we still resolve via bracket)
   for (const mu of document.querySelectorAll<HTMLElement>(".matchup[data-match]")) {
     const num = Number(mu.dataset.match);
     const fx = FIXTURE_BY_NUM[num];
     if (!fx) continue;
+    const res = snap.results[num];
     const t1 = state.bracket.resolveSlot(fx.team1);
     const t2 = state.bracket.resolveSlot(fx.team2);
-    // We don't predict knockout RESULTS: a slot shows a real team only once it's actually
-    // decided — group seeds/best-thirds for the R32, or a confirmed feeder for later rounds —
-    // otherwise "TBD". (confirmedSlots holds exactly the teams whose KO slot is locked in.)
-    const koConfirmed = (team: string) =>
-      fx.stage === "knockout" && fx.round !== "Round of 32" && !state.confirmedSlots.has(team)
-        ? "TBD" : team;
-    const teams = [koConfirmed(t1), koConfirmed(t2)];
-    const res = snap.results[num];
+    // Resolve each slot to what we SHOW, and whether it's a SECURED fact (solid) or just a
+    // projection (dimmed). Priority:
+    //   1. ESPN's real participant (res.teams[i]) — authoritative & secured. ESPN fills the
+    //      R32 pairing as groups finalize; until then that side is a placeholder (null).
+    //   2. else for an R16+ slot fed by W/L code: the real team only once that feeder match
+    //      has been PLAYED (else "TBD"); we never show an odds-projected knockout winner.
+    //   3. else (R32 group-seed slot, ESPN not yet resolved): our projected seed, dimmed.
+    const resolveCell = (slotCode: string, projected: string, idx: 0 | 1):
+      { team: string; secured: boolean } => {
+      const espnTeam = res?.teams?.[idx];
+      if (espnTeam) return { team: espnTeam, secured: true };
+      const wl = /^[WL](\d+)$/.exec(String(slotCode));
+      if (wl) {
+        return snap.results[Number(wl[1])]?.completed
+          ? { team: projected, secured: true }
+          : { team: "TBD", secured: false };
+      }
+      return { team: projected, secured: false }; // R32 seed, still projected
+    };
+    const cells = [resolveCell(fx.team1, t1, 0), resolveCell(fx.team2, t2, 1)];
     // winner emphasis only from a real completed result — never a projection.
     const winner = res?.completed ? res.winner : null;
 
     const rows = mu.querySelectorAll<HTMLElement>(".mu-team");
     rows.forEach((r, i) => {
-      const team = teams[i];
+      const { team, secured } = cells[i];
       setMuTeam(r, team, winner != null && winner === team);
       r.classList.toggle("tbd", team === "TBD");
-      // live score on knockout cells
+      // projected: a real team is shown but its slot isn't a locked fact yet. Dim it 50%;
+      // it goes solid once ESPN/a result secures it.
+      r.classList.toggle("projected", team !== "TBD" && !secured);
+      // live score on knockout cells. Knockout results carry goals BY TEAM NAME (fixtures
+      // order is slot codes), so look this cell's resolved team up in byTeam; fall back to
+      // the positional score1/score2 if present.
       let sc = r.querySelector<HTMLElement>(".sc");
-      const s = i === 0 ? res?.score1 : res?.score2;
+      const s = res?.byTeam?.[team] ?? (i === 0 ? res?.score1 : res?.score2);
       if (sc) {
         if (res && res.state !== "pre" && s != null) { sc.textContent = String(s); sc.hidden = false; }
         else sc.hidden = true;
       }
     });
 
-    const confirmed = (res?.completed === true) ||
-      (state.confirmedSlots.has(t1) && state.confirmedSlots.has(t2) && fx.round === "Round of 32" && useRealKO);
+    // solid matchup border once both participants are secured facts (or the game's been played).
+    const confirmed = res?.completed === true || (cells[0].secured && cells[1].secured);
     mu.classList.toggle("confirmed", confirmed);
   }
   // No champion callout: we don't project a winner. The Final fills in from real results.

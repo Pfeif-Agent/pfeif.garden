@@ -22,9 +22,21 @@ export interface LiveResult {
   num: number;
   state: MatchState;
   completed: boolean;
-  /** Goals for team1 / team2 (in fixtures.json order), null until known. */
+  /** Goals for team1 / team2 (in fixtures.json order), null until known.
+   *  For knockouts, fixtures order is slot codes — so the page aligns scores to the
+   *  resolved teams by NAME via byTeam below; score1/score2 stay null for those. */
   score1: number | null;
   score2: number | null;
+  /** Goals keyed by canonical team NAME. Set for any match ESPN gives real teams for
+   *  (always for knockouts, where fixtures order can't be used). Lets the bracket place a
+   *  score in the right cell once it has resolved the slot to a team. */
+  byTeam?: Record<string, number>;
+  /** Real participant team names ESPN reports for this fixture, in [team1-slot, team2-slot]
+   *  order (home/away aligned to fixtures order for groups; ESPN home/away for knockouts).
+   *  Each entry is set ONLY when ESPN has a real team there — null while ESPN still shows a
+   *  placeholder ("Group L Winner", "Round of 32 3 Winner"). The knockout bracket prefers
+   *  these authoritative pairings over our group-standings projection. */
+  teams?: [string | null, string | null];
   /** Canonical (aliased) name of the advancing/winning side, null until decided.
    *  For group draws this stays null with both scores equal. */
   winner: string | null;
