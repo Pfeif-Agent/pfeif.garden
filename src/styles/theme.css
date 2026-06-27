@@ -9,7 +9,7 @@
  * Type stack:
  *   Barlow Condensed  → display, hero, large headings  (machine voice)
  *   Barlow            → UI, labels, nav, subheadings   (machine voice)
- *   Fraunces          → body prose                     (human voice)
+ *   Newsreader        → body prose                     (human voice)
  *   Space Mono        → code                           (signal voice)
  * ─────────────────────────────────────────────────────────────────────────────
  */
@@ -20,7 +20,7 @@
 
   --font-display:  'Barlow Condensed', sans-serif;
   --font-sans:     'Barlow', sans-serif;
-  --font-serif:    'Fraunces', serif;
+  --font-serif:    'Newsreader', serif;
   --font-mono:     'Space Mono', monospace;
 
 
