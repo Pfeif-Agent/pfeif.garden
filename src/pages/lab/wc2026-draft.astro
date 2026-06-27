@@ -36,8 +36,14 @@ const dtf = new Intl.DateTimeFormat("en-US", {
 const ddf = new Intl.DateTimeFormat("en-US", {
   timeZone: CT, weekday: "short", month: "short", day: "numeric",
 });
+// Sortable CT calendar date ("2026-06-11"), used as the day block's data-date so the
+// jump-to-today button can string-compare each day against today's CT date.
+const isoDateFmt = new Intl.DateTimeFormat("en-CA", {
+  timeZone: CT, year: "numeric", month: "2-digit", day: "2-digit",
+});
 const etTime = (iso: string) => dtf.format(new Date(iso));
 const etDateKey = (iso: string) => ddf.format(new Date(iso)); // "Thu, Jun 11" (CT day)
+const ctIsoDate = (iso: string) => isoDateFmt.format(new Date(iso)); // "2026-06-11" (CT day)
 
 // ---- bracket projection ------------------------------------------------------
 
@@ -88,10 +94,14 @@ interface SchedRow {
   group: string | null;
 }
 const schedByDay = new Map<string, SchedRow[]>();
+const dayIso = new Map<string, string>(); // day label -> sortable CT ISO date
 const dayOrder: string[] = [];
 for (const m of [...FIXTURES].sort((a, b) => a.kickoffUTC.localeCompare(b.kickoffUTC))) {
   const day = etDateKey(m.kickoffUTC);
-  if (!schedByDay.has(day)) { schedByDay.set(day, []); dayOrder.push(day); }
+  if (!schedByDay.has(day)) {
+    schedByDay.set(day, []); dayOrder.push(day);
+    dayIso.set(day, ctIsoDate(m.kickoffUTC));
+  }
   const predicted = m.stage === "knockout";
   schedByDay.get(day)!.push({
     num: m.num,
@@ -340,6 +350,19 @@ html:not(.js) .panel-title{display:block; font-family:"JetBrains Mono",monospace
 }
 
 /* upcoming schedule */
+/* schedule header row: panel title (no-JS only) on the left, jump-to-today on the right.
+   With JS the .panel-title is hidden, so the row collapses to just the button, right-aligned. */
+.sched-top{display:flex; align-items:center; justify-content:flex-end; gap:12px; margin:0 4px}
+.sched-top .panel-title{margin-right:auto}
+.jump-today{font-family:"JetBrains Mono",monospace; font-size:12px; font-weight:700;
+  letter-spacing:.05em; text-transform:uppercase; color:var(--gold); cursor:pointer;
+  background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:7px 12px;
+  transition:background .12s,border-color .12s}
+.jump-today:hover{background:var(--panel-2); border-color:var(--gold)}
+.jump-today:focus-visible{outline:2px solid var(--gold); outline-offset:2px}
+/* no-JS: nothing to scroll-script, so keep it hidden (the [hidden] attr already does this,
+   but be explicit since .panel-title forces the row to exist with no JS) */
+html:not(.js) .jump-today{display:none}
 .legend{display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; margin:0 4px 16px;
   font-family:"JetBrains Mono",monospace; font-size:12px; color:var(--sage-dim)}
 .legend .key{display:inline-flex; align-items:center; gap:8px}
@@ -567,7 +590,12 @@ footer .live.offline::before{background:var(--sage-dim); box-shadow:none}
 
         {/* LEFT column: the schedule */}
         <div class="main-left">
-        <h2 class="panel-title">Schedule</h2>
+        <div class="sched-top">
+          <h2 class="panel-title">Schedule</h2>
+          {/* scrolls to the first day on/after today (the live-ish layer hides it once the
+              schedule's already scrolled past). Hidden with no JS — pure scroll convenience. */}
+          <button type="button" class="jump-today" data-jump-today hidden>↓ Jump to today</button>
+        </div>
         <p class="legend">
           <span class="key"><span class="swp live" aria-hidden="true"></span>live</span>
           <span class="key"><span class="swp done" aria-hidden="true"></span>final</span>
@@ -579,7 +607,7 @@ footer .live.offline::before{background:var(--sage-dim); box-shadow:none}
           <span class="when"><span>Stage</span><span>Time</span></span><span>Home</span><span class="c">Score</span><span class="r">Away</span>
         </div>
         {dayOrder.map((day) => (
-          <div class="sched-day">
+          <div class="sched-day" data-date={dayIso.get(day)}>
             <h2 class="sched-date">{day}</h2>
             {schedByDay.get(day)!.map((r) => (
               <div class="match" class:list={[{ pred: r.predicted }]} data-match={r.num}
@@ -715,7 +743,9 @@ footer .live.offline::before{background:var(--sage-dim); box-shadow:none}
 <script>
   import { initLive } from "../../lib/wc2026/live.client";
   import { initTabs } from "../../lib/wc2026/tabs.client";
+  import { initSchedule } from "../../lib/wc2026/schedule.client";
   initTabs();
+  initSchedule();
   initLive();
 </script>
 </body>

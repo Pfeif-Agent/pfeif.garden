@@ -106,15 +106,22 @@ const { name, color, index, teams, flagUrl } = Astro.props;
     font-size: 17px;
   }
 
-  /* big points number, under the name */
+  /* big points number, under the name. Tinted to match the card's medal rank (the
+     top-border tint): gold for 1st, silver for 2nd, bronze for 3rd, so the score reads
+     as its own medal. Pre-tournament (no medal class yet) it falls back to gold.
+     --medal-text is a brightened variant of each tint, chosen for legibility against
+     the dark radial bg (the 12% wash tint is too dim for a text fill). */
   :global(.stand-card .sc-pts) {
     font-family: "JetBrains Mono", monospace;
     font-weight: 700;
     font-size: 34px;
     line-height: 1;
-    color: var(--gold);
+    color: var(--medal-text, var(--gold));
     margin-top: 6px;
   }
+  :global(.stand-card.gold)   { --medal-text: #F2C14E; }
+  :global(.stand-card.silver) { --medal-text: #DCE3E5; }
+  :global(.stand-card.bronze) { --medal-text: #E0A36B; }
 
   /* caption: "pts · X/Y alive" under the big number */
   :global(.stand-card .sc-cap) {

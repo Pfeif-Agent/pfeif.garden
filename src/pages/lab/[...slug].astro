@@ -14,7 +14,9 @@ export async function getStaticPaths() {
 
 const { item } = Astro.props;
 const isExternal = !!item.data.externalUrl;
-const { Content } = isExternal ? { Content: null } : await render(item);
+// Only local (non-external) items have body content to render. Guarding the render keeps
+// Content non-null on the branch that actually uses <Content /> below.
+const Content = isExternal ? null : (await render(item)).Content;
 
 const formattedDate = item.data.publishDate.toLocaleDateString('en-US', {
   year: 'numeric',
@@ -104,7 +106,7 @@ const formattedDate = item.data.publishDate.toLocaleDateString('en-US', {
     </header>
 
     <div class="lab-post__body flow">
-      <Content />
+      {Content && <Content />}
     </div>
 
   </article>
