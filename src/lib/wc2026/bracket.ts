@@ -41,6 +41,10 @@ export const oddsWinnerOf: WinnerOf = (a, b) => (oddsOf(a) <= oddsOf(b) ? a : b)
 export interface BracketInputs {
   ranking?: Ranking;
   winnerOf?: WinnerOf;
+  /** For a COMPLETED knockout match `num`, the real participants in [team1-slot, team2-slot]
+   *  order (canonical names, each null if unknown), else null. Lets W/L slots resolve to the
+   *  teams that actually played rather than the odds projection. Defaults to () => null. */
+  realTeamsOf?: (num: number) => [string | null, string | null] | null;
 }
 
 export interface ResolvedMatch {
@@ -67,6 +71,7 @@ export interface BracketProjection {
 export function projectBracket(inputs: BracketInputs = {}): BracketProjection {
   const ranking = inputs.ranking ?? oddsRanking;
   const winnerOf = inputs.winnerOf ?? oddsWinnerOf;
+  const realTeamsOf = inputs.realTeamsOf ?? (() => null);
 
   // pos[(group, place)] -> team
   const pos: Record<string, string> = {};
@@ -126,9 +131,11 @@ export function projectBracket(inputs: BracketInputs = {}): BracketProjection {
       const n = Number(wl[2]);
       const w = winnerOfMatch(n);
       if (wl[1] === "W") return w;
-      // loser: the side of match n that didn't win
-      const t1 = resolveSlot(M[n].team1);
-      const t2 = resolveSlot(M[n].team2);
+      // loser: the side of match n that didn't win. Prefer the REAL participants of a played
+      // match (an upset can make the projected participants wrong); fall back to the projection.
+      const real = realTeamsOf(n);
+      const t1 = real?.[0] ?? resolveSlot(M[n].team1);
+      const t2 = real?.[1] ?? resolveSlot(M[n].team2);
       return w === t2 ? t1 : t2;
     }
     return code; // unresolvable slot — leave as-is

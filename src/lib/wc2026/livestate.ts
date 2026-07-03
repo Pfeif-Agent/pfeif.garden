@@ -109,27 +109,32 @@ export function deriveLiveState(
   }
   //   knockout eliminations need resolved slot→team, so they're computed in 5b below.
 
-  // 5) live-blended bracket: use the real result for THIS match if it's been played,
-  //    otherwise fall back to the odds pick.
+  // 5) live-blended bracket: for a played match use the REAL winner (even an upset the odds
+  //    projection didn't foresee); otherwise fall back to the odds pick.
   const winnerOf = (a: string, b: string, matchNum: number): string => {
     const res = results[matchNum];
-    if (res?.completed && res.winner && (res.winner === a || res.winner === b)) {
-      return res.winner;
-    }
+    if (res?.completed && res.winner) return res.winner;
     return oddsWinnerOf(a, b, matchNum);
+  };
+  const realTeamsOf = (num: number): [string | null, string | null] | null => {
+    const res = results[num];
+    return res?.completed && res.teams ? res.teams : null;
   };
   const bracket = projectBracket({
     ranking: (g) => ranking[g],
     winnerOf,
+    realTeamsOf,
   });
 
-  // 5b) knockout eliminations using resolved teams
+  // 5b) knockout eliminations — prefer ESPN's REAL participants for a played match; the odds
+  //     projection can seat a different team in a best-thirds slot than the one that actually
+  //     played (e.g. Germany lost R32 to Paraguay, but the slot projected United States).
   for (const m of FIXTURES) {
     if (m.stage !== "knockout" || m.round === "Match for third place") continue;
     const res = results[m.num];
     if (!res?.completed || !res.winner) continue;
-    const t1 = bracket.resolveSlot(m.team1);
-    const t2 = bracket.resolveSlot(m.team2);
+    const t1 = res.teams?.[0] ?? bracket.resolveSlot(m.team1);
+    const t2 = res.teams?.[1] ?? bracket.resolveSlot(m.team2);
     const loser = res.winner === t1 ? t2 : res.winner === t2 ? t1 : null;
     if (loser && TEAM_BY_NAME[loser]) eliminated.add(loser);
   }

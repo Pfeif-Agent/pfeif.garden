@@ -27,13 +27,19 @@ Two pluggable inputs drive everything:
      as the final tiebreaker for not-yet-decided ties.
 2. **`winnerOf(a, b)` → team**
    - Pre-tournament: the lower-`oddsValue` team.
-   - Live: the real result once the match is played; otherwise fall back to the odds pick.
+   - Live: the real winner once the match is played (**unconditionally** — even an upset where the
+     winner isn't either projected participant `a`/`b`); otherwise fall back to the odds pick.
 
 Then:
 - `1X`/`2X` → `ranking(X)[0]` / `ranking(X)[1]`.
 - Best-thirds slots → see below.
-- `W##`/`L##` → resolve match `##`'s two teams recursively, apply `winnerOf`, return winner (or
-  the other team for `L##`).
+- `W##`/`L##` → resolve match `##`'s two teams, apply `winnerOf`, return winner (or the other team
+  for `L##`). **For a completed match, the two teams come from ESPN's *real* participants
+  (`res.teams`), not the recursive slot projection** — the projection can seat a different team in a
+  best-thirds slot than the one that actually played (e.g. the slot projects team X but team Y showed
+  up and won). Matching the real result against projected slot names silently dropped such results,
+  so both the winner *and* the loser of a played match derive from `res.teams`. Threaded into the
+  pure `projectBracket` via an optional `realTeamsOf(num)` callback.
 
 Memoize match winners; the graph is a DAG so a simple recursion + cache is enough.
 
@@ -72,3 +78,9 @@ Progression in practice:
 Independent of the bracket projection, mark a team **eliminated** (greyed `.elim` everywhere) once
 it cannot advance: in the group stage, when it's mathematically out of the top 2 *and* out of
 best-thirds contention; in the knockouts, when it loses its tie. Drive this from live results.
+
+For a knockout loss, identify the two participants from ESPN's **real** `res.teams` (falling back to
+the projected `resolveSlot` only when absent) before marking the non-winner out — same reason as the
+`W##`/`L##` note above. Matching the real winner against odds-projected slot occupants misses the
+loser whenever the projected team ≠ the team that actually played (this is the bug that once let a
+team lose in the R32 without being greyed out).
