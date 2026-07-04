@@ -5,8 +5,8 @@ publishDate: 2026-04-05
 draft: false
 tags:
   - blog
-type: essay
-growthStage: active
+type: note
+growthStage: complete
 highlight: true
 ---
 
