@@ -274,17 +274,26 @@ function saveCache(snap: LiveSnapshot): void {
 // the whole tournament window, so one scoreboard range covers every stage.
 const DATES_RANGE = "20260611-20260719";
 
+// ESPN caps the scoreboard at 100 events by DEFAULT and silently truncates the TAIL — with 104
+// matches that drops the semifinals onward, and no widening of DATES_RANGE helps (the cap is on
+// event count, not the window). Ask for more than the tournament can ever contain.
+const EVENT_LIMIT = 200;
+
 /** Fetch a fresh snapshot. On total failure, returns the cached last-good (or null). */
 export async function fetchLive(signal?: AbortSignal): Promise<LiveSnapshot | null> {
   const results: Record<number, LiveResult> = {};
   const groupTables: Record<string, GroupRow[]> = {};
   let okCount = 0;
+  // short payload = ESPN dropped events on us; treat the snapshot as partial rather than
+  // letting the odds projection quietly stand in for matches that were actually played.
+  let truncated = false;
 
   try {
-    const sb = await getJSON(`${SCOREBOARD}?dates=${DATES_RANGE}`, signal);
+    const sb = await getJSON(`${SCOREBOARD}?dates=${DATES_RANGE}&limit=${EVENT_LIMIT}`, signal);
     const unmatchedKO: UnmatchedKO[] = [];
     parseScoreboard(sb, results, unmatchedKO);   // pass 1: by pair / kickoff instant
     backfillKnockoutsByName(results, unmatchedKO); // pass 2: re-join drifted KO by team name
+    truncated = (sb?.events?.length ?? 0) < FIXTURES.length;
     okCount++;
   } catch { /* fall through */ }
 
@@ -296,10 +305,17 @@ export async function fetchLive(signal?: AbortSignal): Promise<LiveSnapshot | nu
 
   if (okCount === 0) return loadCache(); // both failed → last-good
 
+  if (truncated) {
+    console.warn(
+      `[wc2026] scoreboard returned fewer than ${FIXTURES.length} events — results are ` +
+      `incomplete and unplayed-looking matches may just be missing. Check the ESPN event cap.`,
+    );
+  }
+
   const snap: LiveSnapshot = {
     results, groupTables,
     fetchedAt: new Date().toISOString(),
-    partial: okCount < 2,
+    partial: okCount < 2 || truncated,
   };
   saveCache(snap);
   return snap;
