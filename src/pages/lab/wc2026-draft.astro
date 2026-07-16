@@ -321,6 +321,12 @@ html:not(.js) .panel-title{display:block; font-family:"JetBrains Mono",monospace
 .board{list-style:none; margin:0; padding:0; columns:2; column-gap:14px}
 .board li{display:flex; align-items:center; gap:9px; padding:8px 12px; margin-bottom:6px;
   background:var(--panel); border:1px solid var(--line); border-radius:9px; break-inside:avoid}
+/* points earned — matches the leaderboard roster's .spts so the two read as one system. */
+.board .bpts{font-family:"JetBrains Mono",monospace; font-size:12px; font-weight:700;
+  color:var(--gold); width:22px; text-align:right; flex:none}
+/* an eliminated team's total is final — mute it rather than striking it through (the .tn
+   already carries the strikethrough), so the number stays legible. */
+.board li.elim .bpts{color:var(--sage-dim)}
 
 /* ---- Main view: two-column dashboard (schedule | standings) ----
    Two atomic blocks placed by grid-area so they reorder cleanly per breakpoint:
@@ -725,6 +731,7 @@ footer .live.offline::before{background:var(--sage-dim); box-shadow:none}
               <span class="gp" aria-label={`Group ${t.group}`}>{t.group}</span>
               <span class={`od ${oddsTier(t.oddsValue)}`}>{t.odds}</span>
               <span class="mn" style={`color:${colorOf(t.manager)}`}>{nameOf(t.manager)}</span>
+              <span class="bpts" data-board-pts aria-label="Points earned">0</span>
             </li>
           ))}
         </ol>

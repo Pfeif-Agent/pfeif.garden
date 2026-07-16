@@ -88,6 +88,7 @@ function applySnapshot(snap: LiveSnapshot, fromCache: boolean): void {
   try { patchBracket(snap, state); } catch { /* non-fatal */ }
   try { patchGroups(snap, state); } catch { /* non-fatal */ }
   try { patchStandings(scores); } catch { /* non-fatal */ }
+  try { patchBoard(scores); } catch { /* non-fatal */ }
   try { patchEliminations(state.eliminated); } catch { /* non-fatal */ }
 
   setStatus(snap.fetchedAt, fromCache || snap.partial);
@@ -357,6 +358,20 @@ function patchStandings(scores: ReturnType<typeof computeScores>): void {
       li.classList.toggle("elim", ts.eliminated);
     }
   });
+}
+
+// ---- draft board: points earned per team ------------------------------------
+
+/** Fill each draft-board row's points cell. Scoped to `.board` because the leaderboard
+ *  rosters use `[data-team-row]` too; the board keeps its static snake-draft order, so
+ *  unlike the rosters these rows are never reordered. */
+function patchBoard(scores: ReturnType<typeof computeScores>): void {
+  for (const li of document.querySelectorAll<HTMLElement>(".board li[data-team-row]")) {
+    const ts = scores.teamScores[li.dataset.teamRow!];
+    if (!ts) continue;
+    const cell = li.querySelector<HTMLElement>("[data-board-pts]");
+    if (cell) cell.textContent = String(ts.points);
+  }
 }
 
 // ---- eliminations everywhere ------------------------------------------------
